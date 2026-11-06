@@ -66,7 +66,7 @@ export function choosePlan(profile:Answers,a:Answers,history:Session[],feedback:
  const missingRecovery=last&&last.date!==dayKey(new Date(now))&&last.recovery===undefined;
  if(missingRecovery)return stop(bi('ریکاوری جلسه قبل هنوز مشخص نیست. ابتدا آن را ثبت کن.','Recovery from the previous session is unknown. Record it first.'));
  const recovering=done.some(x=>now-x.at<24*3600000||(now-x.at<48*3600000&&x.mode==='strength')),low=a.sleep==='low'||a.energy==='low'||(last?.recovery??0)>=5||last?.talk===false||(last?.effort??0)>=8||last?.status==='partial';
- const gentle=low||recovering||a.place==='outside'||profile.legs==='unknown'||a.minutes==='5';
+ let gentle=low||recovering||a.place==='outside'||profile.legs==='unknown'||a.minutes==='5';
  const hard=(group:string)=>feedback?.[group]?.at(-1)?.effort!>=8;
  const reps:Record<string,number>={};
  const push=profile.push==='unknown'?'wall':profile.push;
@@ -75,12 +75,13 @@ export function choosePlan(profile:Answers,a:Answers,history:Session[],feedback:
  if((push==='wall'&&support==='none')||(push==='incline'&&support!=='counter'))pushId='';
  let legId=profile.legs==='free'?'squat-free':support==='chair'?'squat-chair':'calf';
  if(hard('legs'))legId=support==='chair'?'squat-chair':'calf';
- const selected=gentle?[a.place==='outside'?'walk':'march','step-touch']: [legId,...(pushId?[pushId]:[]),profile.core==='yes'&&!hard('core')?'bridge':'march'];
  const first=!last||now-last.at>10*86400000;
  const prior=done.find(x=>gentle?['walk','run','home'].includes(x.mode):x.mode==='strength');
  const progressVolume=done.length>=3&&done.slice(0,3).every(x=>x.status==='complete'&&x.effort<=5&&x.talk&&!x.pain&&x.recovery!==undefined&&x.recovery<=3);
  const historyLimit=prior?Math.min(20,Math.max(5,Math.floor(prior.planned)+(progressVolume?1:0))):10;
  const budget=Math.min(Number(a.minutes),first?10:20,historyLimit,low?5:20,gentle?(Number(profile.cardio)||5):20)*60;
+ if(budget<600)gentle=true;
+ const selected=gentle?[a.place==='outside'?'walk':'march','step-touch']: [legId,...(pushId?[pushId]:[]),profile.core==='yes'&&!hard('core')?'bridge':'march'];
  const steps:Step[]=[];
  const run=!first&&!low&&!recovering&&profile.run==='yes'&&profile.cardio==='20'&&a.place==='outside'&&budget>=1200&&done.slice(0,3).length===3&&done.slice(0,3).every(x=>x.effort<=5&&!x.pain&&x.recovery===2)&&!hard('cardio');
  const add=(id:string,seconds:number,n?:number,phase:Step['phase']='work')=>{steps.push({title:movements[id].name,exercise:id,seconds,phase,...(n?{reps:n}:{}),note:bi(n?`${n} تکرار آرام؛ بقیه زمان استراحت. نفس را حبس نکن.`:'با سرعت راحت، بدون فشار.',n?`${n} slow repetitions; rest for the remaining time. Keep breathing.`:'Move comfortably, without strain.')});if(n)reps[id]=n;};

@@ -11,9 +11,22 @@ def center(n):
     return str((a[0]+a[2])//2),str((a[1]+a[3])//2)
 def shot(name):
     with open('screenshots/'+name+'.png','wb') as f:subprocess.run(['adb','exec-out','screencap','-p'],stdout=f,check=True)
-def click(label,scroll=False):
+def visible(node,root,label):
+    box=list(map(int,re.findall(r'\d+',node.attrib.get('bounds',''))))
+    if len(box)!=4 or box[2]<=box[0] or box[3]<=box[1]:return False
+    nav=['Today','Library','Train','Food','Progress','Settings','امروز','حرکت‌ها','غذا','روند','تنظیمات']
+    if label in nav+['EN','فا']:return True
+    bottom=max([int(re.findall(r'\d+',n.attrib.get('bounds','[0,0][0,0]'))[-1]) for n in root.iter('node')])
+    navtop=[]
+    for n in root.iter('node'):
+        if n.attrib.get('text') in nav or n.attrib.get('content-desc') in nav:
+            b=list(map(int,re.findall(r'\d+',n.attrib['bounds'])))
+            if b[1]>bottom*.7:navtop.append(b[1] if n.attrib.get('clickable')=='true' else b[1]-50)
+    return box[3]<=min(navtop,default=bottom)
+def click(label,scroll=True):
     for _ in range(12 if scroll else 2):
-        matches=[n for n in tree().iter('node') if n.attrib.get('text')==label or n.attrib.get('content-desc')==label]
+        root=tree()
+        matches=[n for n in root.iter('node') if (n.attrib.get('text')==label or n.attrib.get('content-desc')==label) and visible(n,root,label)]
         matches.sort(key=lambda n:n.attrib.get('clickable')!='true')
         if matches:
             adb('shell','input','tap',*center(matches[0]));time.sleep(1.2);return
