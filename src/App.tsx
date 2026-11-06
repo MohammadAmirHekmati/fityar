@@ -109,7 +109,10 @@ function Main() {
       const next=store.apply(change);
       renderState(next);return true;
     } catch {
-      setNotice(store.get().lang==='fa'?'ذخیره انجام نشد. جلسه قبلی حفظ شده؛ دوباره ثبت را بزن.':'Saving failed. Your pending session is retained; retry saving.');return false;
+      const fa=store.get().lang==='fa';
+      const message=fa?'جلسه قبلی حفظ شده؛ دوباره ثبت را بزن.':'Your pending session is retained; retry saving.';
+      setNotice(message);
+      Alert.alert(fa?'ذخیره انجام نشد':'Saving failed',message);return false;
     }
   },[store]);
   useEffect(() => {
