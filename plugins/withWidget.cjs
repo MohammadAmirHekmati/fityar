@@ -60,6 +60,7 @@ class FitYarWidgetModule(private val ctx:ReactApplicationContext):ReactContextBa
   ctx.getSharedPreferences("workout_audio",Context.MODE_PRIVATE).edit().putString("session",data.optString("id")).apply()
   try{val intent=Intent(ctx,WorkoutAudioService::class.java).putExtra("state",state);if(Build.VERSION.SDK_INT>=26)ctx.startForegroundService(intent)else ctx.startService(intent)}catch(e:IllegalStateException){android.util.Log.w("FitYarAudio","Start requires foreground")}
  }
+ @ReactMethod fun audioMuted(promise:Promise){promise.resolve(ctx.getSharedPreferences("workout_audio",Context.MODE_PRIVATE).getBoolean("muted",false))}
  @ReactMethod fun testAudio(volume:Int){val intent=Intent(ctx,WorkoutAudioService::class.java).setAction("test").putExtra("volume",volume);if(Build.VERSION.SDK_INT>=26)ctx.startForegroundService(intent)else ctx.startService(intent)}
  @ReactMethod fun pin(promise:Promise){if(Build.VERSION.SDK_INT>=26){val manager=AppWidgetManager.getInstance(ctx);promise.resolve(manager.isRequestPinAppWidgetSupported && manager.requestPinAppWidget(ComponentName(ctx,FitYarWidget::class.java),null,null))}else promise.resolve(false)}
 }

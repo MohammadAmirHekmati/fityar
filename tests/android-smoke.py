@@ -5,7 +5,7 @@ os.makedirs('screenshots',exist_ok=True)
 def adb(*args): return subprocess.check_output(['adb',*args],text=True,timeout=35)
 def tree():
     result=adb('shell','am','instrument','-w','-e','class','fityar.test.Dump','fityar.acceptance.test/androidx.test.runner.AndroidJUnitRunner')
-    assert 'FAILURES' not in result,result
+    assert 'OK (1 test)' in result,result
     return ET.fromstring(adb('shell','cat','/sdcard/Android/data/fityar.acceptance/files/window.xml'))
 def center(n):
     a=list(map(int,re.findall(r'\d+',n.attrib['bounds'])))
@@ -27,7 +27,7 @@ def visible(node,root,label):
 def click(label,scroll=True):
     for _ in range(12 if scroll else 2):
         root=tree()
-        matches=[n for n in root.iter('node') if (n.attrib.get('text','').removeprefix('✓ ')==label.removeprefix('✓ ') or n.attrib.get('content-desc','').removeprefix('✓ ')==label.removeprefix('✓ ')) and visible(n,root,label)]
+        matches=[n for n in root.iter('node') if (n.attrib.get('text','').removeprefix('✓ ').casefold()==label.removeprefix('✓ ').casefold() or n.attrib.get('content-desc','').removeprefix('✓ ').casefold()==label.removeprefix('✓ ').casefold()) and visible(n,root,label)]
         matches.sort(key=lambda n:n.attrib.get('clickable')!='true')
         if matches:
             adb('shell','input','tap',*center(matches[0]));time.sleep(1.2);return
@@ -41,7 +41,8 @@ def pause_timer():
 def launch():adb('shell','monkey','-p',APP,'1');time.sleep(7)
 def enter(label,value):
     for _ in range(12):
-        edits=[n for n in tree().iter('node') if n.attrib.get('class')=='android.widget.EditText' and n.attrib.get('content-desc')==label]
+        root=tree()
+        edits=[n for n in root.iter('node') if n.attrib.get('class')=='android.widget.EditText' and n.attrib.get('content-desc')==label and visible(n,root,label)]
         if edits:
             adb('shell','input','tap',*center(edits[0]));adb('shell','input','keyevent','123');adb('shell','input','keyevent',*(['67']*40));adb('shell','input','text',value);adb('shell','input','keyevent','4');time.sleep(.5);return
         adb('shell','input','swipe','300','1450','300','600','350');time.sleep(.5)
@@ -57,11 +58,13 @@ adb('install','-r','previous.apk');launch();click('EN');click('Get started')
 answers(['Yes','No','Knee push-up','6–10','Squat without a chair','Yes, getting down and up is comfortable','20 minutes or more','No or unsure'])
 click('Progress');enter('Weight (kg)','70');enter('Waist (cm)','90');click('Save measurements')
 click('Settings');click('Activity and habit logs');click('Mark today as not done')
+click('Food');click('Browse, favorites and logs');enter('Search food or alias','Rice');click('Log today')
 click('Today');click('My plan today');answers(['No','No, I feel well','Enough and acceptable','Good','20 minutes','Indoors','None']);shot('01-v2-ready')
 adb('shell','am','force-stop',APP);adb('shell','svc','wifi','disable');adb('shell','svc','data','disable');adb('install','-r','fityar.apk');launch()
 assert 'versionCode=3' in adb('shell','dumpsys','package',APP)
 assert has('Knee push-up'),'Guided profile or ready plan lost on upgrade';shot('02-upgraded-plan')
 click('Progress');click('Last 7 readings average: 70.0 kg');click('Manually marked not done');shot('03-retained-data')
+click('Food');click('Browse, favorites and logs');enter('Search food or alias','Rice');click('Today’s food log');assert has('Rice · 1'),'Food record lost on upgrade'
 click('Today');click('Edit ability and restrictions');click('Exit check');assert has('Today’s main work'),'Unchanged reassessment did not exit'
 click('Edit ability and restrictions');click('No');click('Exit check');click('Discard changes');assert has('Knee push-up'),'Discard changed prior profile'
 click('Edit ability and restrictions');click('No');click('Exit check');click('Save for later');assert has('Knee push-up');click('Resume saved draft');click('Exit check');click('Discard changes');shot('04-cancel-preserves-plan')
@@ -76,8 +79,13 @@ for _ in range(4):click('Skip this step')
 assert has('Free squat'),'Warmup skip unexpectedly ended the whole session';shot('09-main-work')
 click('Resume');time.sleep(2);adb('shell','input','keyevent','3');time.sleep(3)
 assert 'WorkoutAudioService' in adb('shell','dumpsys','activity','services',APP),'Native audio service not running in background'
-shot('10-background');launch();pause_timer()
-for _ in range(2):click('Skip this step')
+adb('shell','input','keyevent','26');time.sleep(50)
+background_logs=adb('logcat','-d','-s','FitYarAudio:I')
+assert re.search(r'boundary [56]\b',background_logs),'No timer boundary while screen was off'
+adb('shell','input','keyevent','26');adb('shell','input','keyevent','82');shot('10-background');launch();pause_timer()
+for _ in range(12):
+    if any(n.attrib.get('text')=='Knee push-up' for n in tree().iter('node')):break
+    click('Skip this step')
 assert has('Knee push-up');shot('11-push-set')
 adb('shell','am','force-stop',APP);launch();assert has('Resume'),'Paused session lost'
 click('Finish early and record');answers(['Moderate — 5 out of 10','Yes','No','None']);assert has('Today’s session is saved');shot('12-saved-partial')
@@ -104,4 +112,5 @@ logs=adb('logcat','-d','-s','AndroidRuntime:E','ReactNativeJS:E','FitYarAudio:I'
 with open('screenshots/runtime.txt','w') as f:f.write(logs)
 assert 'FATAL EXCEPTION' not in logs and 'TypeError' not in logs,logs
 assert 'boundary' in logs,'No native audio boundary executed'
+assert len(re.findall(r'boundary 4\b',logs))==1,'Audio boundary repeated across resume/foreground'
 print('V2 upgrade, transactional drafts, custom time, both access, workout, native audio service, notifications and widget registration passed / پذیرش نسخه سوم')

@@ -44,7 +44,7 @@ import { initial, load, save, State, validate } from "./storage";
 import { syncNotifications,listenResponses,clearResponse } from "./reminders";
 import {reminderAction} from './reminderPlan';
 import {quickStart} from './quickStart';
-import {syncWidget,syncAudio} from './widget';
+import {syncWidget,syncAudio,audioMuted} from './widget';
 
 export default function App(){return <SafeAreaProvider><Main/></SafeAreaProvider>;}
 function Main() {
@@ -136,10 +136,14 @@ function Main() {
   },[]);
   useEffect(() => {
     const id = setInterval(() => setTick(Date.now()), 1000);
+    const reflectMute=()=>{audioMuted().then(muted=>{if(muted)setS(old=>({...old,audio:{...(old.audio??{volume:60,vibrate:false}),enabled:false}}));}).catch(()=>{});};
+    reflectMute();
+    const focus=AppState.addEventListener('focus',reflectMute);
     const sub = AppState.addEventListener("change", (state) => {setTick(Date.now());if(state==='active'){syncWidget(latestState.current);syncAudio(latestState.current);syncNotifications(latestState.current).catch(()=>{});}});
     return () => {
       clearInterval(id);
       sub.remove();
+      focus.remove();
     };
   }, []);
   const d = decide(check, s.sessions, tick),

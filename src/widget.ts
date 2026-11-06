@@ -13,3 +13,4 @@ export function syncWidget(s:State){
 export async function pinWidget():Promise<boolean>{return (await NativeModules.FitYarWidget?.pin())??false;}
 export function syncAudio(s:State){const a=s.active;NativeModules.FitYarWidget?.audio(JSON.stringify({...a,...(s.audio??{enabled:true,volume:60,vibrate:false}),id:a?.id??'legacy',paused:!a||a.paused,fa:s.lang==='fa'}));}
 export function testAudio(volume:number){NativeModules.FitYarWidget?.testAudio(volume);}
+export async function audioMuted():Promise<boolean>{return (await NativeModules.FitYarWidget?.audioMuted())??false;}

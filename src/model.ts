@@ -73,7 +73,7 @@ export function validate(value: unknown): State {
   const before=(x:unknown)=>x===undefined||(obj(x)&&num(x.minutes,5,60)&&num(x.sleep,0,24)&&num(x.energy,1,5)&&typeof x.pain==='boolean'&&typeof x.symptoms==='boolean'&&typeof x.outside==='boolean'&&modes.includes(String(x.mode)));
   if (!obj(value)) return fail();
   const s = value as unknown as State;
-  if(s.audio&&(!obj(s.audio)||typeof s.audio.enabled!=='boolean'||typeof s.audio.vibrate!=='boolean'||!num(s.audio.volume,0,100)))return fail();
+  if(s.audio!==undefined&&(!obj(s.audio)||typeof s.audio.enabled!=='boolean'||typeof s.audio.vibrate!=='boolean'||!num(s.audio.volume,0,100)||!Number.isInteger(s.audio.volume)))return fail();
   if(s.coach!==undefined&&!validateCoach(s.coach))return fail();
   if(s.coach?.flow?.kind==='post'&&!s.active)return fail();
   if(s.coach?.flow?.kind==='adapt'&&!s.coach.ready)return fail();

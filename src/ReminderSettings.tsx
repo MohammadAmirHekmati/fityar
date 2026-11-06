@@ -9,6 +9,7 @@ export default function ReminderSettings({s,update}:{s:State;update:(p:Partial<S
  const r=s.reminders,fa=s.lang==='fa',t=(f:string,e:string)=>fa?f:e,ink=s.dark?'#edf5f3':'#16372e';
  const time=(h:number,m:number)=>`${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`;
  const [work,W]=useState(time(r.workEndHour??17,r.workEndMinute??0)),[exercise,E]=useState(time(r.hour,r.minute));
+ const [quietStart,QS]=useState(String(r.quietStart)),[quietEnd,QE]=useState(String(r.quietEnd));
  const text=(v:string)=><Text style={{color:ink,fontSize:17,lineHeight:26,textAlign:fa?'right':'left'}}>{v}</Text>;
  const button=(v:string,fn:()=>void)=><Pressable accessibilityRole="button" onPress={fn} style={{padding:16,minHeight:52,borderWidth:1,borderColor:'#83a196',borderRadius:12}}>{text(v)}</Pressable>;
  const toggle=(label:string,value:boolean,onValueChange:(v:boolean)=>void)=><View>{text(label)}<Switch accessibilityLabel={label} value={value} onValueChange={onValueChange}/></View>;
@@ -25,8 +26,9 @@ export default function ReminderSettings({s,update}:{s:State;update:(p:Partial<S
  {toggle(t('یادآورها فعال','Reminders enabled'),r.enabled,async v=>{if(!v||await permission())set({enabled:v});})}
  {toggle(t('آماده کردن کفش و لباس پس از کار','Prepare shoes and clothes after work'),r.prep??false,v=>set({prep:v}))}
  {toggle(t('اجازه صدا و لرزش متمایز یادآور','Allow distinct reminder sound and vibration'),r.strong??false,async v=>{if(!v||await permission())set({strong:v});})}
- {field(t('شروع سکوت (۰ تا ۲۳)','Quiet hours start (0–23)'),String(r.quietStart),v=>{if(/^\d{1,2}$/.test(v)&&Number(v)<=23)set({quietStart:Number(v)});})}
- {field(t('پایان سکوت (۰ تا ۲۳)','Quiet hours end (0–23)'),String(r.quietEnd),v=>{if(/^\d{1,2}$/.test(v)&&Number(v)<=23)set({quietEnd:Number(v)});})}
+ {field(t('شروع سکوت (۰ تا ۲۳)','Quiet hours start (0–23)'),quietStart,v=>{QS(v);if(/^\d{1,2}$/.test(v)&&Number(v)<=23)set({quietStart:Number(v)});})}
+ {field(t('پایان سکوت (۰ تا ۲۳)','Quiet hours end (0–23)'),quietEnd,v=>{QE(v);if(/^\d{1,2}$/.test(v)&&Number(v)<=23)set({quietEnd:Number(v)});})}
+ {(!/^\d{1,2}$/.test(quietStart)||!/^\d{1,2}$/.test(quietEnd)||Number(quietStart)>23||Number(quietEnd)>23)&&text(t('ساعت صحیح ۰ تا ۲۳ وارد کن؛ تا آن زمان مقدار معتبر قبلی حفظ می‌شود.','Enter an hour from 0 to 23; the previous valid value is retained until then.'))}
  {button(t('آزمون اعلان ۵ ثانیه','Test notification in 5 seconds'),async()=>{if(await permission()){const result=await testNotification(s.lang,5,r);if(result===false)Alert.alert(t('اکنون ساعات سکوت است','Quiet hours are active'));}})}
  <Pressable accessibilityRole="button" style={{padding:16}} onPress={()=>update({reminders:reminderAction(s,'snooze',String(Date.now()),dayKey()).reminders})}>{text(t('تعویق ۱۵ دقیقه','Snooze 15 minutes'))}</Pressable>
  <Pressable accessibilityRole="button" style={{padding:16}} onPress={()=>update({reminders:reminderAction(s,'skip',String(Date.now()),dayKey()).reminders})}>{text(t('امروز نمی‌توانم','Cannot today'))}</Pressable>
