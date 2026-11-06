@@ -89,8 +89,13 @@ adb('shell','settings','put','system','lockscreen_sounds_enabled','0')
 volume_info=adb('shell','cmd','media_session','volume','--stream','3','--get')
 volume_max=re.search(r'\[0\.\.(\d+)\]',volume_info)
 assert volume_max,volume_info
-adb('shell','cmd','media_session','volume','--stream','3','--set',volume_max.group(1))
-print('Emulator media volume:',adb('shell','cmd','media_session','volume','--stream','3','--get'))
+def set_media_volume():
+    print(adb('shell','cmd','audio','set-volume','3',volume_max.group(1)),flush=True)
+    time.sleep(1)
+    actual=adb('shell','cmd','media_session','volume','--stream','3','--get')
+    print('Emulator media volume:',actual,flush=True)
+    assert 'volume is '+volume_max.group(1)+' in range' in actual,'Emulator volume command did not apply'
+set_media_volume()
 adb('install','-r','previous.apk');launch();click('EN');click('Get started')
 answers(['Yes','No','Knee push-up','6–10','Squat without a chair','Yes, getting down and up is comfortable','20 minutes or more','No or unsure'])
 click('Progress');enter('Weight (kg)','70');enter('Waist (cm)','90');click('Save measurements')
@@ -111,6 +116,7 @@ shot('05-duration-options');enter('Custom minutes','121');click('Use custom time
 enter('Custom minutes','37');click('Use custom time');click('Both indoors and outside');click('None');click('Confirm and continue');shot('06-custom-both-preview')
 assert seek('Knee push-up');assert seek('Today’s main work')
 if os.environ.get('FITYAR_AUDIO_TEST')=='1':
+    set_media_volume()
     baseline=capture_audio('audio-baseline',2);baseline.wait(timeout=10)
     recording=[]
     def start_capture():
