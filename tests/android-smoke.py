@@ -34,24 +34,33 @@ def visible(node,root,label):
             b=list(map(int,re.findall(r'\d+',n.attrib['bounds'])))
             if b[1]>bottom*.7:navtop.append(b[1] if n.attrib.get('clickable')=='true' else b[1]-50)
     return box[3]<=min(navtop,default=bottom)
+def search_steps(scroll=True):
+    yield 0
+    if not scroll:
+        time.sleep(.6);yield 1;return
+    # A retained scroll offset can place inputs above the current viewport.
+    # Reset to the top before a measured downward scan; never search only one side.
+    for _ in range(6):
+        adb('shell','input','swipe','300','650','300','1300','80');time.sleep(.15)
+    time.sleep(1)
+    for i in range(40):
+        yield i+1
+        adb('shell','input','swipe','300','1300','300','850','350');time.sleep(.6)
+
 def click(label,scroll=True,before=None):
-    for _ in range(28 if scroll else 2):
+    for _ in search_steps(scroll):
         root=tree()
         matches=[n for n in root.iter('node') if (n.attrib.get('text','').removeprefix('✓ ').casefold()==label.removeprefix('✓ ').casefold() or n.attrib.get('content-desc','').removeprefix('✓ ').casefold()==label.removeprefix('✓ ').casefold()) and visible(n,root,label)]
         matches.sort(key=lambda n:n.attrib.get('clickable')!='true')
         if matches:
             if before:before()
             adb('shell','input','tap',*center(matches[0]));time.sleep(1.2);return
-        if scroll:
-            start,end=('1300','850') if _<14 else ('850','1300')
-            adb('shell','input','swipe','300',start,'300',end,'350');time.sleep(.8)
     shot('missing-'+re.sub(r'[^a-zA-Z0-9]','_',label))
     raise AssertionError('Missing control: '+label)
 def has(text):return any(text.casefold() in n.attrib.get('text','').casefold() or text.casefold() in n.attrib.get('content-desc','').casefold() for n in tree().iter('node'))
 def seek(text):
-    for _ in range(12):
+    for _ in search_steps():
         if has(text):return True
-        adb('shell','input','swipe','300','1450','300','600','350');time.sleep(.5)
     return False
 
 def pause_timer():
@@ -62,12 +71,11 @@ def launch():
     if any('inputmethod' in n.attrib.get('package','') for n in tree().iter('node')):
         adb('shell','input','keyevent','4');time.sleep(.5)
 def enter(label,value):
-    for _ in range(12):
+    for _ in search_steps():
         root=tree()
         edits=[n for n in root.iter('node') if n.attrib.get('class')=='android.widget.EditText' and n.attrib.get('content-desc')==label and visible(n,root,label)]
         if edits:
             adb('shell','input','tap',*center(edits[0]));adb('shell','input','keyevent','123');adb('shell','input','keyevent',*(['67']*40));adb('shell','input','text',value);adb('shell','input','keyevent','4');time.sleep(.5);return
-        adb('shell','input','swipe','300','1450','300','600','350');time.sleep(.5)
     raise AssertionError('Missing input: '+label)
 def answers(values):
     for v in values:click(v,True)
