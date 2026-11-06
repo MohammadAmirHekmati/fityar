@@ -33,7 +33,12 @@ def click(label,scroll=True):
         if scroll:adb('shell','input','swipe','300','1450','300','600','350');time.sleep(.6)
     shot('missing-'+re.sub(r'[^a-zA-Z0-9]','_',label))
     raise AssertionError('Missing control: '+label)
-def has(text):return any(text in n.attrib.get('text','') for n in tree().iter('node'))
+def has(text):return any(text in n.attrib.get('text','') or text in n.attrib.get('content-desc','') for n in tree().iter('node'))
+def pause_timer():
+    # Observed native Pixel 2 bounds: Pause [100,1146][980,1292]. A changing
+    # countdown prevents UIAutomator's idle wait; tap, then assert paused semantics.
+    adb('shell','input','tap','540','1220');time.sleep(1)
+    assert has('Resume') or has('ادامه'),'Pause tap did not pause the timer'
 def launch():adb('shell','monkey','-p',APP,'1');time.sleep(7)
 def enter(label,value):
     for _ in range(12):
@@ -65,7 +70,7 @@ assert has('Knee push-up'),'Reported knee push-up not selected'
 click('This does not suit me today',True);answers(['No support available']);assert has('Knee push-up')
 click('Start plan');time.sleep(2);shot('07-warmup-en')
 # A moving timer may prevent UIAutomator idling. Freeze by tapping the visible Pause control if needed.
-click('Pause',True);shot('08-paused-warmup')
+pause_timer();shot('08-paused-warmup')
 for _ in range(4):click('Skip this step',True)
 shot('08-strength-stage')
 for _ in range(2):click('Skip this step',True)
@@ -80,7 +85,7 @@ click('Update recovery',True);answers(['Comfortable and recovered'])
 # Persian full check -> plan -> guided session -> result, with same retained profile.
 click('فا');click('برنامه امروز من');
 for label in ['نه','نه، حالم خوب است','کافی و قابل قبول','معمولی','۵ دقیقه','داخل خانه','هیچ‌کدام']:click(label,True)
-shot('10-questions-fa');click('تأیید و ادامه',True);shot('11-plan-fa');click('شروع برنامه');click('مکث',True);shot('12-session-fa');click('پایان زودتر و ثبت نتیجه',True)
+shot('10-questions-fa');click('تأیید و ادامه',True);shot('11-plan-fa');click('شروع برنامه');shot('12-before-pause-fa');pause_timer();shot('12-session-fa');click('پایان زودتر و ثبت نتیجه',True)
 for label in ['راحت — ۳ از ۱۰','بله','نه','هیچ‌کدام']:click(label,True)
 click('تأیید و ادامه',True);shot('13-result-fa')
 click('EN');click('Library');click('Knee push-up',True);shot('14-knee-teaching')
