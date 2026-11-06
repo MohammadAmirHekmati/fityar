@@ -13,9 +13,10 @@ def shot(name):
     with open('screenshots/'+name+'.png','wb') as f:subprocess.run(['adb','exec-out','screencap','-p'],stdout=f,check=True)
 def click(label,scroll=False):
     for _ in range(12 if scroll else 2):
-        for n in tree().iter('node'):
-            if n.attrib.get('text')==label or n.attrib.get('content-desc')==label:
-                adb('shell','input','tap',*center(n));time.sleep(1.2);return
+        matches=[n for n in tree().iter('node') if n.attrib.get('text')==label or n.attrib.get('content-desc')==label]
+        matches.sort(key=lambda n:n.attrib.get('clickable')!='true')
+        if matches:
+            adb('shell','input','tap',*center(matches[0]));time.sleep(1.2);return
         if scroll:adb('shell','input','swipe','300','1450','300','600','350');time.sleep(.6)
     shot('missing-'+re.sub(r'[^a-zA-Z0-9]','_',label))
     raise AssertionError('Missing control: '+label)
