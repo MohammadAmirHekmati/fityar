@@ -18,8 +18,19 @@ export async function permission() {
   });
   return (await N.requestPermissionsAsync()).granted;
 }
-export async function syncNotifications(s: State) {
+let queue: Promise<void> = Promise.resolve();
+let generation = 0;
+export function syncNotifications(s: State) {
+  const current = ++generation;
+  queue = queue.catch(() => {}).then(async () => {
+    if(current === generation) await applyNotifications(s);
+  });
+  return queue;
+}
+async function applyNotifications(s: State) {
   await N.cancelAllScheduledNotificationsAsync();
+  if(!(await N.getPermissionsAsync()).granted) return;
+  await N.setNotificationChannelAsync('fitness', {name:'FitYar / فیت‌یار',importance:AndroidImportance.DEFAULT});
   const fa = s.lang === "fa";
   const r = s.reminders;
   const quiet = (h: number) =>
@@ -50,7 +61,7 @@ export async function syncNotifications(s: State) {
             ? "انرژی و ریکاوری امروز را بررسی کن."
             : "Check your energy and recovery today.",
         );
-      if (r.move) {
+      if (r.move && !(s.habits[dayKey(d)] ?? []).includes('move')) {
         const m = new Date(d);
         m.setHours(12, 0);
         await schedule(

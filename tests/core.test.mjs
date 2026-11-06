@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import {movementLevel} from '../src/core.ts';
 import {
   decide,
   plan,
@@ -11,6 +12,8 @@ import {
   dayKey,
 } from "../src/core.ts";
 const now = Date.UTC(2026, 0, 20, 12);
+test('Independent movement levels / سطح مستقل حرکت',()=>{const ratings={push:[{at:1,effort:9,pain:false}],squat:[{at:1,effort:3,pain:false},{at:2,effort:3,pain:false},{at:3,effort:3,pain:false}]};assert.equal(movementLevel('push',ratings).level,'reduce');assert.equal(movementLevel('squat',ratings).level,'easy');assert.equal(movementLevel('deadbug',ratings).level,'calibrate');});
+test('Missing readiness prevents progression / آمادگی ناقص بدون افزایش',()=>assert.equal(decide({...check,sleep:undefined},[session(2),session(4),session(6)],now).state,'rest'));
 const check = {
   minutes: 30,
   sleep: 8,

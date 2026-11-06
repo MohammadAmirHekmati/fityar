@@ -52,6 +52,7 @@ export function decide(
         "Stop exercise. Chest pain, fainting or severe breathlessness needs urgent assessment; contact local emergency services.",
       ),
     );
+  if(![c.minutes,c.sleep,c.energy].every(Number.isFinite)||typeof c.pain!=='boolean'||typeof c.symptoms!=='boolean'||typeof c.outside!=='boolean')return result('rest',bi('اطلاعات آمادگی کامل نیست؛ ابتدا آن را تکمیل کن.','Readiness data is incomplete; complete it before planning.'));
   if (c.pain)
     return result(
       "rest",
@@ -81,7 +82,7 @@ export function decide(
         "Low sleep or energy: gentle movement only if comfortable.",
       ),
       Math.min(10, c.minutes),
-      "walk",
+      c.outside ? "walk" : "home",
     );
   if (
     (last && gap < 1) ||
@@ -154,6 +155,7 @@ export interface Step {
   title: Text;
   seconds: number;
   exercise?: string;
+  note?: Text;
 }
 export const names: Record<Mode, Text> = {
   walk: bi("پیاده‌روی راحت", "Easy walk"),
@@ -162,7 +164,16 @@ export const names: Record<Mode, Text> = {
   home: bi("هوازی کم‌ضربه", "Low-impact cardio"),
   short: bi("جلسه کوتاه", "Short session"),
 };
-export function plan(d: Decision): Step[] {
+export type Ratings = Record<string, {at:number;effort:number;pain:boolean}[]>;
+export function movementLevel(id:string,ratings:Ratings = {}): {level:'calibrate'|'easy'|'hold'|'reduce'|'stop';reason:Text} {
+ const recent=(ratings[id]??[]).slice(-3);
+ if(!recent.length)return {level:'calibrate',reason:bi('توان این حرکت هنوز ثبت نشده؛ با نسخه آسان و چند تکرار ذخیره شروع کن.','This movement is uncalibrated; start with the easy version and several repetitions in reserve.')};
+ if(recent.at(-1)!.pain)return {level:'stop',reason:bi('در آخرین ثبت درد داشتی؛ این حرکت را کنار بگذار و در صورت تداوم درد ارزیابی بگیر.','Pain was recorded last time; omit this movement and seek assessment if pain persists.')};
+ if(recent.some(x=>x.effort>=8))return {level:'reduce',reason:bi('این حرکت دشوار بوده؛ از جایگزین آسان‌تر و دامنه کمتر استفاده کن.','This movement was difficult; use the easier alternative and a smaller range.')};
+ if(recent.length===3&&recent.every(x=>x.effort<=5&&!x.pain))return {level:'easy',reason:bi('سه ثبت راحت؛ سطح فعلی مناسب است. افزایش کلی فقط با ریکاوری کامل بررسی می‌شود.','Three comfortable records; the current level fits. Overall progression still requires complete recovery.')};
+ return {level:'hold',reason:bi('سطح این حرکت را نگه دار؛ توان حرکات دیگر معیار آن نیست.','Hold this movement level; ability in other movements is not used to infer it.')};
+}
+export function plan(d: Decision, ratings:Ratings = {}): Step[] {
   if (d.minutes <= 0) return [];
   const warm = Math.min(300, Math.floor((d.minutes * 60) / 4));
   const middle = d.minutes * 60 - warm * 2;
@@ -194,13 +205,15 @@ export function plan(d: Decision): Step[] {
     }
   } else if (d.mode === "strength") {
     const ids = ["squat", "push", "lunge", "bridge", "w", "deadbug", "side"];
-    ids.forEach((id) =>
+    ids.forEach((id) => {
+      const level=movementLevel(id,ratings);
       steps.push({
-        title: exercises.find((e) => e.id === id)!.name,
+        title: level.level==='stop'?bi('استراحت؛ حرکت دردناک حذف شد','Rest; painful movement omitted'):exercises.find((e) => e.id === id)!.name,
         seconds: Math.floor(middle / ids.length),
-        exercise: id,
-      }),
-    );
+        exercise: level.level==='stop'?undefined:id,
+        note:level.reason,
+      });
+    });
   } else
     steps.push({
       title:
@@ -228,6 +241,11 @@ export interface Active {
   steps: Step[];
   decision: Decision;
   skipped: number[];
+  skippedSeconds?: number;
+}
+export function actualSeconds(a: Active, now = Date.now()) {
+  const duration = a.steps.reduce((sum, step) => sum + step.seconds, 0);
+  return Math.max(0, Math.min(duration, elapsed(a, now)) - (a.skippedSeconds ?? 0));
 }
 export function elapsed(a: Active, now = Date.now()) {
   return Math.max(0, a.elapsed + (a.paused ? 0 : (now - a.started) / 1000));

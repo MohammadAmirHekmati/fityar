@@ -1,3 +1,4 @@
+import Illustration from "./Illustration";
 import React, { useEffect, useState } from "react";
 import {
   Alert,
@@ -13,12 +14,13 @@ import {
   View,
   Vibration,
 } from "react-native";
-import Svg, { Circle, Line, Polyline } from "react-native-svg";
+import Svg, { Polyline } from "react-native-svg";
 import * as DocumentPicker from "expo-document-picker";
 import { File, Paths } from "expo-file-system";
 import * as Sharing from "expo-sharing";
 import {
   allowed,
+  actualSeconds,
   bi,
   Check,
   dayKey,
@@ -28,6 +30,7 @@ import {
   foodAdvice,
   foods,
   Mode,
+  movementLevel,
   names,
   normalize,
   plan,
@@ -63,6 +66,7 @@ export default function App() {
   const [weight, W] = useState(""),
     [waist, WA] = useState(""),
     [exercise, SE] = useState("squat");
+  const [movementEffort, ME] = useState(5), [movementPain, MP] = useState(false);
   const fa = s.lang === "fa",
     t = (f: string, e: string) => (fa ? f : e);
   const colors = s.dark
@@ -270,7 +274,7 @@ export default function App() {
     ]);
   const finish = (status: "complete" | "partial") => {
     if (!active) return;
-    const mins = actual ? Number(actual) : Math.min(seconds, total) / 60;
+    const mins = actual ? Number(actual) : actualSeconds(active, tick) / 60;
     if (!Number.isFinite(mins) || mins <= 0 || mins > 300) {
       setNotice(t("مدت معتبر وارد کن.", "Enter a valid duration."));
       return;
@@ -285,10 +289,10 @@ export default function App() {
       effort,
       talk,
       pain,
-      status: active.skipped.length ? "partial" : status,
+      status: active.skipped.length || (total > 0 && seconds < total && !actual) ? "partial" : status,
       reason: active.decision.reason,
     };
-    update({ sessions: [x, ...s.sessions], active: null });
+    update({ sessions: [x, ...s.sessions], active: null, movementRatings: x.mode==='run'?{...s.movementRatings,run:[...(s.movementRatings?.run??[]),{at:tick,effort,pain}]}:s.movementRatings });
     A("");
     setNotice(
       t("ثبت شد؛ فردا ریکاوری را ثبت کن.", "Saved; record recovery tomorrow."),
@@ -339,56 +343,7 @@ export default function App() {
       );
     }
   }
-  function illustration(id: string) {
-    const poses: Record<string, string[]> = {
-      squat: ["80,42 80,90 65,135 62,167", "80,42 72,84 110,113 89,166"],
-      push: ["60,43 75,89 48,164 45,170", "82,43 94,86 49,164 45,170"],
-      lunge: ["80,43 80,92 55,160 42,166", "80,43 80,92 113,120 105,162"],
-      bridge: [
-        "35,146 80,144 113,104 145,150",
-        "35,146 77,109 113,104 145,150",
-      ],
-      w: ["35,135 80,135 130,135 150,135", "35,135 80,129 130,135 150,135"],
-      deadbug: [
-        "35,145 80,145 105,110 145,145",
-        "35,145 80,145 110,145 155,145",
-      ],
-      side: ["35,95 80,118 113,147 150,147", "35,95 80,99 113,135 150,147"],
-    };
-    return (
-      <View style={styles.row}>
-        {(poses[id] ?? poses.squat).map((p, i) => (
-          <View key={i} style={{ flex: 1, alignItems: "center" }}>
-            <Svg width="140" height="150" viewBox="0 0 180 190">
-              <Line
-                x1="10"
-                y1="170"
-                x2="170"
-                y2="170"
-                stroke={colors.border}
-                strokeWidth="3"
-              />
-              <Polyline
-                points={p}
-                fill="none"
-                stroke={colors.accent}
-                strokeWidth="8"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-              <Circle
-                cx={Number(p.split(" ")[0].split(",")[0])}
-                cy={Number(p.split(" ")[0].split(",")[1]) - 14}
-                r="11"
-                fill={colors.accent}
-              />
-            </Svg>
-            {txt(i ? t("پایان", "Finish") : t("شروع", "Start"), 12, true)}
-          </View>
-        ))}
-      </View>
-    );
-  }
+  const illustration = (id:string) => <Illustration id={id} fa={fa} accent={colors.accent} muted={colors.muted} border={colors.border}/>;
   const tabs = [
     ["today", "امروز", "Today"],
     ["train", "تمرین", "Train"],
@@ -688,10 +643,12 @@ export default function App() {
                                   elapsed: cumulative,
                                   started: tick,
                                   skipped: [...active.skipped, stepIndex],
+                                  skippedSeconds: (active.skippedSeconds ?? 0) + remaining,
                                 },
                               }),
                             true,
                           )}
+                        {step?.note && txt(step.note[s.lang],14,true)}
                         {step?.exercise && (
                           <>
                             {illustration(step.exercise)}
@@ -829,7 +786,7 @@ export default function App() {
                                 started: tick,
                                 elapsed: 0,
                                 paused: false,
-                                steps: plan(d),
+                                steps: plan(d,s.movementRatings),
                                 decision: d,
                                 skipped: [],
                               },
@@ -852,6 +809,10 @@ export default function App() {
                       SE,
                     )}
                     {illustration(exercise)}
+                    {txt(movementLevel(exercise,s.movementRatings).reason[s.lang],14,true)}
+                    {scale(t('سختی همین حرکت (ثبت اختیاری)','Effort for this movement (optional)'),movementEffort,ME,10)}
+                    {toggle(t('در همین حرکت درد داشتم','Pain during this movement'),movementPain,MP)}
+                    {button(t('ثبت توان همین حرکت','Save movement feedback'),()=>{update({movementRatings:{...s.movementRatings,[exercise]:[...(s.movementRatings?.[exercise]??[]),{at:tick,effort:movementEffort,pain:movementPain}]}});setNotice(t('توان این حرکت مستقل ثبت شد.','This movement was recorded independently.'));},true)}
                     {txt(exercises.find((x) => x.id === exercise)!.cue[s.lang])}
                     {txt(
                       t("خطای رایج: ", "Common mistake: ") +
@@ -1522,4 +1483,5 @@ const styles = StyleSheet.create({
   },
   nav: { borderTopWidth: 1, paddingBottom: 24, flexDirection: "row" },
 });
+
 
