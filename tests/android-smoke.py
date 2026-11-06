@@ -16,6 +16,9 @@ def on_error(kind,value,trace):
     try:
         shot('failure')
         with open('screenshots/failure.xml','w') as f:f.write(ET.tostring(tree(),encoding='unicode'))
+        with open('screenshots/audio-state.txt','w') as f:f.write(adb('shell','dumpsys','audio'))
+        with open('screenshots/failure-logcat.txt','w') as f:f.write(adb('logcat','-d'))
+        with open('screenshots/pulse-state.txt','w') as f:f.write(subprocess.check_output(['pactl','list'],text=True))
     finally:sys.__excepthook__(kind,value,trace)
 sys.excepthook=on_error
 
@@ -83,7 +86,11 @@ for pattern in ['**/acceptance-debug.apk','**/acceptance-debug-androidTest.apk']
 urllib.request.urlretrieve('https://github.com/MohammadAmirHekmati/fityar/releases/download/v1.1.0-preview.12/fityar.apk','previous.apk')
 adb('shell','settings','put','system','sound_effects_enabled','0')
 adb('shell','settings','put','system','lockscreen_sounds_enabled','0')
-adb('shell','cmd','media_session','volume','--stream','3','--set','10')
+volume_info=adb('shell','cmd','media_session','volume','--stream','3','--get')
+volume_max=re.search(r'\[0\.\.(\d+)\]',volume_info)
+assert volume_max,volume_info
+adb('shell','cmd','media_session','volume','--stream','3','--set',volume_max.group(1))
+print('Emulator media volume:',adb('shell','cmd','media_session','volume','--stream','3','--get'))
 adb('install','-r','previous.apk');launch();click('EN');click('Get started')
 answers(['Yes','No','Knee push-up','6–10','Squat without a chair','Yes, getting down and up is comfortable','20 minutes or more','No or unsure'])
 click('Progress');enter('Weight (kg)','70');enter('Waist (cm)','90');click('Save measurements')
@@ -109,6 +116,7 @@ if os.environ.get('FITYAR_AUDIO_TEST')=='1':
     def start_capture():
         recording.append(capture_audio('audio-test-tone',4));time.sleep(.5)
     click('Test workout sound',before=start_capture);recording[0].wait(timeout=10)
+    print('Captured audio peaks:',audio_peak('audio-baseline'),audio_peak('audio-test-tone'))
     assert audio_peak('audio-test-tone')>max(100,audio_peak('audio-baseline')*3),'Workout test produced no measurable audio'
 else:click('Test workout sound')
 time.sleep(2)
