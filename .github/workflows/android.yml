@@ -63,7 +63,9 @@ jobs:
       - name: Prepare audio capture / آماده‌سازی ضبط صدا
         run: |
           sudo apt-get update -qq
-          sudo apt-get install -y pulseaudio ffmpeg libasound2-plugins
+          sudo apt-get install -y pulseaudio ffmpeg libasound2-plugins xvfb
+          Xvfb :99 -screen 0 1280x1024x24 > /tmp/fityar-xvfb.log 2>&1 &
+          echo 'DISPLAY=:99' >> "$GITHUB_ENV"
           pulseaudio --start --exit-idle-time=-1
           pactl load-module module-null-sink sink_name=fityar_test
           pactl set-default-sink fityar_test
@@ -76,7 +78,7 @@ jobs:
           arch: x86_64
           profile: pixel_2
           disable-animations: true
-          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -no-boot-anim
+          emulator-options: -gpu swiftshader_indirect -no-snapshot -no-boot-anim
           script: python tests/android-smoke.py
       - uses: actions/upload-artifact@v4
         if: always()
