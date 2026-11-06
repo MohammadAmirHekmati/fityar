@@ -34,6 +34,10 @@ General adult wellness guidance, not diagnosis or treatment. Stop for concerning
 
 Notifications cover a rolling 7-day window. Android battery restrictions and force-stop can prevent delivery. The timer uses persisted timestamps, not a continuously running background JavaScript loop. Real-device lock-screen, notification, backup, and upgrade acceptance remain required before a stable release.
 
+Precise interval alerts require the optional Android exact-alarm permission exposed in Settings. Without it, Android can delay scheduled alerts. [Expo permission documentation](https://docs.expo.dev/versions/v58.0.0/sdk/notifications/#requestexactalarmpermissionsasync)
+
+اعلان دقیق بخش‌های تمرین به مجوز اختیاری زمان‌بندی دقیق Android در تنظیمات نیاز دارد. بدون آن ممکن است اعلان با تأخیر برسد. [مستندات مجوز Expo](https://docs.expo.dev/versions/v58.0.0/sdk/notifications/#requestexactalarmpermissionsasync)
+
 اعلان‌ها در پنجره ۷ روزه تنظیم می‌شوند. محدودیت باتری و توقف اجباری ممکن است مانع آن‌ها شود. تایمر از زمان ذخیره‌شده استفاده می‌کند، نه اجرای دائمی جاوااسکریپت در پس‌زمینه. بررسی صفحه قفل، اعلان، بکاپ و ارتقا روی گوشی واقعی پیش از انتشار پایدار لازم است.
 
 ## Sources / منابع
@@ -41,6 +45,7 @@ Notifications cover a rolling 7-day window. Android battery restrictions and for
 - [CDC: activity intensity / شدت فعالیت](https://www.cdc.gov/physical-activity-basics/measuring/index.html)
 - [NHS: strength exercises / تمرین قدرتی](https://www.nhs.uk/live-well/exercise/strength-exercises/)
 - [NHS: balanced diet / تغذیه متعادل](https://www.nhs.uk/live-well/eat-well/how-to-eat-a-balanced-diet/eating-a-balanced-diet/)
+- [AAOS: bridge and modified side plank / پل باسن و پلانک بغل تعدیل‌شده](https://www.orthoinfo.org/bodypart/back/spine-conditioning-program/)
 
 App-specific progression thresholds are conservative product heuristics, not validated medical prescriptions. Tests use synthetic records only.
 

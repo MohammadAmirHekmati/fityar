@@ -39,7 +39,7 @@ import {
   Session,
 } from "./core";
 import { initial, load, save, State, validate } from "./storage";
-import { permission, syncNotifications, testNotification } from "./reminders";
+import { permission, syncNotifications, testNotification, requestExactAlarmPermissionsAsync } from "./reminders";
 
 export default function App(){return <SafeAreaProvider><Main/></SafeAreaProvider>;}
 function Main() {
@@ -1315,6 +1315,8 @@ function Main() {
                       },
                       true,
                     )}
+                    {txt(t('برای زمان‌بندی دقیق اعلانِ بخش‌های تمرین، اجازه جداگانه Android لازم است؛ بدون آن ممکن است اعلان دیر برسد.','Precise workout interval alerts need separate Android permission; without it, delivery may be delayed.'),13,true)}
+                    {button(t('اجازه زمان‌بندی دقیق (اختیاری)','Allow precise timing (optional)'),async()=>{try{const result=await requestExactAlarmPermissionsAsync();setNotice(result.granted?t('زمان‌بندی دقیق مجاز شد.','Precise timing allowed.'):t('اعلان‌ها با زمان تقریبی ادامه دارند.','Notifications continue with approximate timing.'));await syncNotifications(s);}catch{setNotice(t('تنظیمات اجازه زمان‌بندی در این دستگاه در دسترس نیست.','Timing permission settings are unavailable on this device.'));}},true)}
                     {button(
                       t("تعویق ۱۵ دقیقه", "Snooze 15 minutes"),
                       async () => {

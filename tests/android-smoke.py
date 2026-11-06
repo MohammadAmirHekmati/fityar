@@ -26,7 +26,7 @@ assert edits,'Age input missing'
 adb('shell','input','tap',*center(edits[0]));adb('shell','input','text','30');adb('shell','input','keyevent','4');click('Begin',True);shot('03-today-en')
 for tab in ['Food','Progress','Settings','Train']:
     click(tab);shot('04-'+tab.lower())
-click('Settings');adb('shell','pm','grant',APP,'android.permission.POST_NOTIFICATIONS');click('Test notification in 5 seconds',True);adb('shell','input','keyevent','3')
+click('Settings');adb('shell','pm','grant',APP,'android.permission.POST_NOTIFICATIONS');adb('shell','appops','set',APP,'SCHEDULE_EXACT_ALARM','allow');click('Test notification in 5 seconds',True);adb('shell','input','keyevent','3')
 for _ in range(12):
     time.sleep(5);notification_dump=adb('shell','dumpsys','notification','--noredact')
     if 'Movement reminder; check how you feel.' in notification_dump:break
