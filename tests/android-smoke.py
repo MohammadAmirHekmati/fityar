@@ -40,7 +40,7 @@ def click(label,scroll=True,before=None):
         if scroll:adb('shell','input','swipe','300','1450','300','600','350');time.sleep(.6)
     shot('missing-'+re.sub(r'[^a-zA-Z0-9]','_',label))
     raise AssertionError('Missing control: '+label)
-def has(text):return any(text in n.attrib.get('text','') or text in n.attrib.get('content-desc','') for n in tree().iter('node'))
+def has(text):return any(text.casefold() in n.attrib.get('text','').casefold() or text.casefold() in n.attrib.get('content-desc','').casefold() for n in tree().iter('node'))
 def seek(text):
     for _ in range(12):
         if has(text):return True
@@ -132,9 +132,9 @@ assert 'Movement reminder; check how you feel.' in adb('shell','dumpsys','notifi
 adb('shell','cmd','statusbar','expand-notifications');time.sleep(2);shot('13-notification');adb('shell','input','keyevent','4');launch()
 click('Settings');click('Add home screen widget');time.sleep(2);shot('14-widget-pin')
 # Launcher confirmation differs by Android launcher, use visible wording only.
-if has('Add to home screen'):click('Add to home screen')
-elif has('ADD AUTOMATICALLY'):click('ADD AUTOMATICALLY')
-elif has('Add automatically'):click('Add automatically')
+if has('Add automatically'):click('Add automatically')
+elif has('Add to home screen'):click('Add to home screen')
+elif has('Add widget'):click('Add widget')
 adb('shell','input','keyevent','3');time.sleep(2);shot('15-widget-home')
 assert 'FitYarWidget' in adb('shell','dumpsys','appwidget'),'Widget provider not registered'
 adb('shell','am','start','-W','-a','android.intent.action.VIEW','-d','fityar://today',APP);time.sleep(3);assert has('My plan today'),'Widget deep link failed'
@@ -149,3 +149,6 @@ assert 'FATAL EXCEPTION' not in logs and 'TypeError' not in logs,logs
 assert 'boundary' in logs,'No native audio boundary executed'
 assert len(re.findall(r'boundary 4\b',logs))==1,'Audio boundary repeated across resume/foreground'
 print('V2 upgrade, transactional drafts, custom time, both access, workout, native audio service, notifications and widget registration passed / پذیرش نسخه سوم')
+
+if os.environ.get('FITYAR_AUDIO_TEST')=='1':
+    exec(compile(open('tests/android-extended.py',encoding='utf-8-sig').read(),'tests/android-extended.py','exec'))
