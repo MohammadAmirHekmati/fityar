@@ -89,8 +89,14 @@ export function validate(value: unknown): State {
   if((r.workEndHour!==undefined&&(!Number.isInteger(r.workEndHour)||!num(r.workEndHour,0,23)))||(r.workEndMinute!==undefined&&(!Number.isInteger(r.workEndMinute)||!num(r.workEndMinute,0,59)))||[r.prep,r.strong].some(v=>v!==undefined&&typeof v!=='boolean'))return fail();
   if(r.days!==undefined&&(!obj(r.days)||Object.entries(r.days).length>100||Object.entries(r.days).some(([d,x])=>!date(d)||!obj(x)||!num(x.snoozes,0,10000)||(x.snoozeUntil!==undefined&&!num(x.snoozeUntil,0,1e14))||(x.skip!==undefined&&typeof x.skip!=='boolean')||(x.handled!==undefined&&!strings(x.handled)))))return fail();
   if(s.movementRatings!==undefined&&(!obj(s.movementRatings)||!Object.entries(s.movementRatings).every(([key,entries])=>['squat','push','lunge','bridge','w','deadbug','side','run'].includes(key)&&Array.isArray(entries)&&entries.every(x=>obj(x)&&num(x.at,0,1e14)&&num(x.effort,1,10)&&typeof x.pain==='boolean'))))return fail();
+  const validProgram=(p:unknown)=>p===undefined||(obj(p)&&str(p.id)&&num(p.week,1,10000)&&['strength','cardio','mixed','recovery','short'].includes(String(p.kind)));
+  const validLoad=(x:unknown)=>x===undefined||(obj(x)&&x.source==='timer'&&['warmup','work','cooldown','rest'].every(k=>num(x[k],0,18000))&&obj(x.groups)&&['push','legs','core','back','cardio'].every(k=>num((x.groups as Record<string,unknown>)[k],0,18000)));
+  if(s.sessions.some(x=>(x.stopReason!==undefined&&!['time','test','accidental','fatigue','pain','other'].includes(x.stopReason))||(x.activity!==undefined&&!['none','warmup','main','unknown'].includes(x.activity))||!validLoad(x.load)||!validProgram(x.program)))return fail();
+  if(s.coach?.flow?.kind==='stop'&&s.coach.flow.target==='active'&&(!s.active||!s.coach.flow.post))return fail();
   const a=s.active;
   if(a!==null){if(!obj(a)||!num(a.started,0,1e14)||!num(a.elapsed,0,1e7)||typeof a.paused!=='boolean'||!Array.isArray(a.steps)||a.steps.length>300||!a.steps.every(x=>obj(x)&&text(x.title)&&num(x.seconds,1,3600))||!Array.isArray(a.skipped)||!a.skipped.every(x=>Number.isInteger(x)&&x>=0&&x<a.steps.length)||!obj(a.decision)||!modes.includes(a.decision.mode)||!num(a.decision.minutes,0,300)||!text(a.decision.reason)||!['stop','rest','return','reduce','hold','progress'].includes(a.decision.state)||(a.skippedSeconds!==undefined&&!num(a.skippedSeconds,0,1e7)))return fail();}
+  if(a&&!validProgram(a.program))return fail();
+  if(a?.stepSeconds&&(!obj(a.stepSeconds)||Object.entries(a.stepSeconds).some(([i,n])=>!/^\d+$/.test(i)||!a.steps[Number(i)]||!num(n,0,a.steps[Number(i)].seconds))))return fail();
   if(a?.transitions&&(!Array.isArray(a.transitions)||a.transitions.some(i=>!Number.isInteger(i)||i<0||i>=a.steps.length||!a.steps[i].transition)))return fail();
   return s;
 }

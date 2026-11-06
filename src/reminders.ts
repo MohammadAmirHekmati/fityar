@@ -1,3 +1,4 @@
+import {exposure} from './trainingHistory';
 import {AndroidImportance} from 'expo-notifications';
 import * as N from 'expo-notifications';
 import type {State} from './model';
@@ -32,7 +33,7 @@ async function apply(s:State){
  // Clear obsolete delivered reminders too, including snoozes after a saved session.
  for(const n of await N.getPresentedNotificationsAsync()){
   const date=String(n.request.content.data?.date??'');
-  if(n.request.content.data?.kind&&(!s.reminders.enabled||s.sessions.some(x=>x.date===date)||s.reminders.days?.[date]?.skip))await N.dismissNotificationAsync(n.request.identifier);
+  if(n.request.content.data?.kind&&(!s.reminders.enabled||s.sessions.some(x=>x.date===date&&exposure(x).seconds>0)||s.reminders.days?.[date]?.skip))await N.dismissNotificationAsync(n.request.identifier);
  }
 
 }

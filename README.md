@@ -1,5 +1,8 @@
 # FitYar / فیت‌یار
 
+Planner v4: [reviewed examples and regression evidence](docs/V4-ACCEPTANCE.md).
+نسخه چهارم برنامه‌ساز: [نمونه‌های بازبینی‌شده و شواهد رگرسیون](docs/V4-ACCEPTANCE.md).
+
 An independent, offline Android fitness and food companion in Persian and English. No AI, account, analytics, or backend. Health records remain in local SQLite; exports occur only on request.
 
 همراه مستقل و آفلاین اندروید برای تمرین و انتخاب غذا، به فارسی و انگلیسی. بدون هوش مصنوعی، حساب، تحلیل‌گر یا سرور. اطلاعات سلامت در SQLite محلی است و خروجی تنها با درخواست کاربر انجام می‌شود.

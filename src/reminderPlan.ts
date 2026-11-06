@@ -1,3 +1,4 @@
+import {exposure,meaningful} from './trainingHistory.ts';
 import {dayKey,quietHour} from './core.ts';
 import type {State} from './model';
 export interface ReminderDay {snoozes:number;snoozeUntil?:number;skip?:boolean;handled?:string[]}
@@ -8,8 +9,8 @@ export function reminderEvents(s:State,now=Date.now()):ReminderEvent[]{
  const add=(at:number,kind:ReminderEvent['kind'],date:string)=>{if(at>now&&!quietHour(new Date(at).getHours(),r.quietStart,r.quietEnd))events.push({id:`fityar-${date}-${kind}`,at,kind,date});};
  for(let i=0;i<7;i++){
   const d=new Date(now);d.setDate(d.getDate()+i);d.setHours(r.hour,r.minute,0,0);
-  const date=dayKey(d),ledger=r.days?.[date],done=s.sessions.some(x=>x.date===date);
-  const previous=s.sessions.filter(x=>x.status!=='missed'&&x.date<date).sort((a,b)=>b.at-a.at)[0];
+  const date=dayKey(d),ledger=r.days?.[date],done=s.sessions.some(x=>x.date===date&&exposure(x).seconds>0);
+  const previous=s.sessions.filter(x=>x.status!=='missed'&&meaningful(x)&&x.date<date).sort((a,b)=>b.at-a.at)[0];
   const recovery=previous&&previous.recovery===undefined&&new Date(previous.at+86400000).toDateString()===d.toDateString();
   if(!ledger?.skip&&!done){
    const kind=s.active&&i===0?'partial':recovery?'recovery':'exercise';

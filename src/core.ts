@@ -6,7 +6,15 @@ export const quietHour=(hour:number,start:number,end:number)=>start===end?false:
 export const dayKey = (d = new Date()) =>
   `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 export type Mode = "walk" | "run" | "strength" | "home" | "short";
+export type StopReason = 'time'|'test'|'accidental'|'fatigue'|'pain'|'other';
+export type MuscleGroup = 'push'|'legs'|'core'|'back'|'cardio';
+export interface Workload {warmup:number;work:number;cooldown:number;rest:number;groups:Record<MuscleGroup,number>;source:'timer'}
+export interface Program {id:string;week:number;kind:'strength'|'cardio'|'mixed'|'recovery'|'short'}
 export interface Session {
+  stopReason?:StopReason;
+  activity?:'none'|'warmup'|'main'|'unknown';
+  load?:Workload;
+  program?:Program;
   before?: Check;
   id: string;
   date: string;
@@ -243,6 +251,8 @@ export function plan(d: Decision, ratings:Ratings = {}): Step[] {
   return steps;
 }
 export interface Active {
+  stepSeconds?:Record<number,number>;
+  program?:Program;
   id?:string;
   transitions?: number[];
   before?: Check;

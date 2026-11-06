@@ -18,7 +18,7 @@ test('All 116 supported minute ceilings preserve real main work / همه زما�
   validate({...initial,coach:{profile,ready:{date:dayKey(new Date(now)),answers:{...daily,minutes:String(minutes),place}}},active:{id:'test',started:now,elapsed:0,paused:true,steps:p.steps,decision:p.decision,skipped:[]}});
  }
  for(const minutes of ['30','45','60'])assert.ok(choosePlan(profile,{...daily,minutes},history,{},now).decision.minutes>20);
- assert.equal(choosePlan(profile,daily,[],{},now).decision.minutes,14);
+ assert.equal(choosePlan(profile,daily,[],{},now).decision.minutes,25);
 });
 test('Manual minutes validation accepts 37 and legacy 15; rejects malformed/out of range / زمان دستی',()=>{
  const f={...newFlow('daily'),cursor:4,answers:{symptoms:'no',pain:'no',sleep:'ok',energy:'good'}};
@@ -49,7 +49,7 @@ test('Both locations select history-aware sessions and block clock at transition
  assert.equal(elapsed(a,now+1e8),boundary);assert.equal(actualSeconds(a,now+1e8),boundary);
  assert.equal(elapsed({...a,elapsed:boundary,started:now+1e8,transitions:[i]},now+1e8+1000),boundary+1);
  assert.equal(p.steps[i].phase,'warmup');assert.equal(p.steps[i].location,'outside');assert.ok(p.steps.filter(s=>s.exercise?.startsWith('push')).every(s=>s.location==='inside'));
- const outside=choosePlan(profile,{...daily,place:'both'},history,{},now);assert.ok(outside.steps.every(s=>s.location==='outside'));
+ const outside=choosePlan(profile,{...daily,place:'both'},history,{},now);assert.ok(outside.steps.some(s=>s.location==='outside')&&outside.steps.some(s=>s.location==='inside'));const recovering=choosePlan(profile,{...daily,place:'both'},[{...row,at:now-3600000}],{},now);assert.equal(recovering.program.kind,'recovery');
 });
 test('Reminders: one fixed followup, quiet hours, snooze, skip, completion and recovery / منطق یادآور',()=>{
  const s={...initial,onboard:true,reminders:{...initial.reminders,enabled:true,hour:18,minute:0,prep:true,workEndHour:17}};
@@ -66,7 +66,7 @@ test('Reminders: one fixed followup, quiet hours, snooze, skip, completion and r
 test('Long availability never creates unlimited strength sets / زمان بیشتر ست نامحدود نمی‌سازد',()=>{
  const p=choosePlan(profile,{...daily,minutes:'120'},history.map(x=>({...x,planned:110})),{},now);
  for(const id of ['squat-free','push-knee','bridge','heel-slide','bird-dog'])assert.ok(p.steps.filter(s=>s.phase==='work'&&s.exercise===id).length<=3);
- assert.ok(p.decision.minutes>20);assert.ok(p.steps.some(s=>s.phase==='work'&&s.exercise==='march'));
+ assert.ok(p.decision.minutes>20);assert.ok(!p.steps.some(s=>s.phase==='work'&&s.exercise==='march'),'Do not fill spare minutes with arbitrary extra work');
 });
 test('Quick start preserves readiness, drafts, completed days and warmup / شروع آسان ایمن',()=>{
  const s={...initial,onboard:true,coach:{profile,ready:{date:dayKey(new Date(now)),answers:daily}}};

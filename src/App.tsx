@@ -1,3 +1,4 @@
+import appConfig from '../app.json';
 import ReminderSettings from './ReminderSettings';
 import FoodGuide from "./FoodGuide";
 import Coach from "./GuidedCoach";
@@ -1279,7 +1280,7 @@ function Main() {
                       true,
                     )}
                     {txt(
-                      "FitYar 1.0.0 · " +
+                      "FitYar " + appConfig.expo.version + " · " +
                         t("آفلاین و مستقل", "Offline and independent"),
                       12,
                       true,
