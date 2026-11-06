@@ -12,4 +12,6 @@ English: Removed the inherited previous-plan duration ceiling. A/B strength temp
 
 English: Recorded phase/group/time exposure, not planned duration, informs recovery. The timer does not detect physical repetitions or form. Recovery days have explicit labels, reasons and next-session guidance. Pain and danger symptoms retain their gates. This remains an offline preview, without claims to be a real trainer or clinician.
 
-[Regression, reviewed examples, sources and validation / رگرسیون، نمونه‌ها، منابع و بررسی](docs/V4-ACCEPTANCE.md)
+[Regression, reviewed examples, sources and validation / رگرسیون، نمونه‌ها، منابع و بررسی](https://github.com/MohammadAmirHekmati/fityar/blob/main/docs/V4-ACCEPTANCE.md)
+
+Verified / تأییدشده: 54 tests, typecheck, lint, signed upgrade and focused Android acceptance / ۵۴ تست، بررسی نوع و lint، ارتقای امضاشده و پذیرش هدفمند اندروید.

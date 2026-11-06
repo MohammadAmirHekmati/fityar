@@ -7,7 +7,7 @@ An independent, offline Android fitness and food companion in Persian and Englis
 
 همراه مستقل و آفلاین اندروید برای تمرین و انتخاب غذا، به فارسی و انگلیسی. بدون هوش مصنوعی، حساب، تحلیل‌گر یا سرور. اطلاعات سلامت در SQLite محلی است و خروجی تنها با درخواست کاربر انجام می‌شود.
 
-[Download signed 1.2 preview APK / دانلود APK امضاشده ۱٫۲](https://github.com/MohammadAmirHekmati/fityar/releases/download/v1.2.0-preview.16/fityar.apk) · [Validation / اعتبارسنجی](docs/V3-ACCEPTANCE.md)
+[Download signed 1.3 preview APK / دانلود APK امضاشده ۱٫۳](https://github.com/MohammadAmirHekmati/fityar/releases/download/v1.3.0-preview.18/fityar.apk) · [Validation / اعتبارسنجی](docs/V4-ACCEPTANCE.md)
 
 ## Features / قابلیت‌ها
 

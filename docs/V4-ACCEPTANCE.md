@@ -38,6 +38,15 @@ Exact time thresholds and progression gates are conservative app heuristics, not
 
 ## Validation / بررسی
 
-Local: typecheck, lint, and 54 unit/regression tests. Native acceptance is pending: same-key v1.2.0 upgrade, preserved history, unknown stop clarification, normal 25-minute session, test-only repeat, fatigue/recovery and pain gates, Persian layout and new movement illustration. Existing unrelated audio/widget acceptance remains documented in V3-ACCEPTANCE.md; it is not rerun for this planner-only change.
+Local: typecheck, lint, and 54 unit/regression tests. Native acceptance passed on API 35 x86_64: same-key v1.2.0 upgrade, preserved history, unknown stop clarification, normal 25-minute session, test-only repeat, fatigue/recovery and pain gates, Persian layout and new movement illustration. Existing unrelated audio/widget acceptance remains documented in V3-ACCEPTANCE.md; it is not rerun for this planner-only change.
 
-محلی: بررسی نوع، lint و ۵۴ تست واحد و رگرسیون. پذیرش اندروید هنوز در انتظار اجراست: ارتقای هم‌امضا، حفظ سابقه، اصلاح توقف قدیمی، برنامه اصلی، ثبت آزمایشی، ریکاوری و درد، نمای فارسی و تصویر حرکت. پذیرش صوت و ویجت قبلی در گزارش نسخه سوم باقی می‌ماند و برای این تغییر برنامه‌ساز تکرار نمی‌شود.
+محلی: بررسی نوع، lint و ۵۴ تست واحد و رگرسیون. پذیرش اندروید API 35 روی x86_64 موفق شد: ارتقای هم‌امضا، حفظ سابقه، اصلاح توقف قدیمی، برنامه اصلی، ثبت آزمایشی، ریکاوری و درد، نمای فارسی و تصویر حرکت. پذیرش صوت و ویجت قبلی در گزارش نسخه سوم باقی می‌ماند و برای این تغییر برنامه‌ساز تکرار نمی‌شود.
+
+
+Verified build / ساخت تأییدشده: [run 18](https://github.com/MohammadAmirHekmati/fityar/actions/runs/42272727949), source `1bf7ea774944155997f342ff54e474bc874f84cd`, app 1.3.0, Android versionCode 4.
+
+APK SHA-256: `59ff8a08cc3ae79ac5a600a0464e245a944a3f72368a059d97521f9d8bf0f9a5`.
+
+The exact signed APK passed an in-place upgrade from public v1.2.0-preview.16, preserving the synthetic session and ability profile. Screenshots of clarification, six-movement plan, recovery, pain gate, Persian layout and the new guide were inspected. This validates app behavior on an emulator; physical exercise, clinical effectiveness and the user’s particular handset were not tested.
+
+همان APK امضاشده روی نسخه عمومی قبلی نصب شد و سابقه ساختگی و توان ثبت‌شده حفظ شدند. تصاویر سؤال اصلاح، برنامه شش‌حرکتی، ریکاوری، مانع درد، نمای فارسی و راهنمای جدید بازبینی شدند. این بررسی رفتار نرم‌افزار روی شبیه‌ساز است؛ اجرای بدنی تمرین، اثربخشی بالینی و گوشی خاص کاربر آزموده نشده‌اند.
