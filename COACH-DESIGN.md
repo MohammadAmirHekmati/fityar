@@ -22,3 +22,7 @@ Safety overrides readiness. Missing answers and unknown next-day recovery never 
 Every guided active plan has named warm-up steps, written method, time/repetitions, movement-specific illustration and timer, followed by work and cool-down. Strength preparation includes marching, shoulder rolls and two gentle rehearsal repetitions of the chosen leg/push movement. Five-minute sessions are gentle movement breaks only, with gradual entry and exit; they do not squeeze a vigorous workout into a short warm-up. Run/walk sessions reserve five minutes each for walking warm-up and cool-down. All durations count against the stated time budget. Stop with pain or unusual symptoms.
 
 هر برنامه فعال مرحله گرم‌کردن با نام، روش، زمان یا تکرار، تصویر و تایمر دارد. قدرتی شامل راه رفتن درجا، شانه و دو تکرار تمرینی آرام از حرکت منتخب است. جلسه پنج‌دقیقه‌ای فقط وقفه حرکتی آرام است، نه تمرین شدید با گرم‌کردن کوتاه. دویدن پنج دقیقه ورود و پنج دقیقه خروج آرام دارد. همه زمان‌ها در بودجه کل حساب می‌شوند.
+
+Duration growth is capped at one minute beyond the previous comparable session, and only after three complete, easy, recovered records. A hard or partial session triggers a short easy return. Recent sessions suppress strength/running for 24 hours, with 48 hours after strength.
+
+افزایش مدت فقط با سه ثبت کامل، راحت و ریکاوری مناسب، حداکثر یک دقیقه بیشتر از جلسه مشابه قبلی است. جلسه سخت یا ناتمام به بازگشت کوتاه و راحت منجر می‌شود. پس از جلسه اخیر تا ۲۴ ساعت قدرتی و دویدن انتخاب نمی‌شود؛ فاصله بعد از قدرتی ۴۸ ساعت است.

@@ -65,7 +65,7 @@ export function choosePlan(profile:Answers,a:Answers,history:Session[],feedback:
  if(last&&(last.pain||(last.recovery??0)>=7)&&last.recovery!==2)return stop(bi('درد یا ریکاوری ضعیف قبلی هنوز رفع نشده؛ ابتدا وضعیت ریکاوری را ثبت کن.','Previous pain or poor recovery is unresolved; update recovery first.'));
  const missingRecovery=last&&last.date!==dayKey(new Date(now))&&last.recovery===undefined;
  if(missingRecovery)return stop(bi('ریکاوری جلسه قبل هنوز مشخص نیست. ابتدا آن را ثبت کن.','Recovery from the previous session is unknown. Record it first.'));
- const recovering=done.some(x=>now-x.at<48*3600000&&x.mode==='strength'),low=a.sleep==='low'||a.energy==='low'||(last?.recovery??0)>=5||last?.talk===false;
+ const recovering=done.some(x=>now-x.at<24*3600000||(now-x.at<48*3600000&&x.mode==='strength')),low=a.sleep==='low'||a.energy==='low'||(last?.recovery??0)>=5||last?.talk===false||(last?.effort??0)>=8||last?.status==='partial';
  const gentle=low||recovering||a.place==='outside'||profile.legs==='unknown'||a.minutes==='5';
  const hard=(group:string)=>feedback?.[group]?.at(-1)?.effort!>=8;
  const reps:Record<string,number>={};
@@ -77,7 +77,10 @@ export function choosePlan(profile:Answers,a:Answers,history:Session[],feedback:
  if(hard('legs'))legId=support==='chair'?'squat-chair':'calf';
  const selected=gentle?[a.place==='outside'?'walk':'march','step-touch']: [legId,...(pushId?[pushId]:[]),profile.core==='yes'&&!hard('core')?'bridge':'march'];
  const first=!last||now-last.at>10*86400000;
- const budget=Math.min(Number(a.minutes),first?10:20,low?5:20,gentle?(Number(profile.cardio)||5):20)*60;
+ const prior=done.find(x=>gentle?['walk','run','home'].includes(x.mode):x.mode==='strength');
+ const progressVolume=done.length>=3&&done.slice(0,3).every(x=>x.status==='complete'&&x.effort<=5&&x.talk&&!x.pain&&x.recovery!==undefined&&x.recovery<=3);
+ const historyLimit=prior?Math.min(20,Math.max(5,Math.floor(prior.planned)+(progressVolume?1:0))):10;
+ const budget=Math.min(Number(a.minutes),first?10:20,historyLimit,low?5:20,gentle?(Number(profile.cardio)||5):20)*60;
  const steps:Step[]=[];
  const run=!first&&!low&&!recovering&&profile.run==='yes'&&profile.cardio==='20'&&a.place==='outside'&&budget>=1200&&done.slice(0,3).length===3&&done.slice(0,3).every(x=>x.effort<=5&&!x.pain&&x.recovery===2)&&!hard('cardio');
  const add=(id:string,seconds:number,n?:number,phase:Step['phase']='work')=>{steps.push({title:movements[id].name,exercise:id,seconds,phase,...(n?{reps:n}:{}),note:bi(n?`${n} تکرار آرام؛ بقیه زمان استراحت. نفس را حبس نکن.`:'با سرعت راحت، بدون فشار.',n?`${n} slow repetitions; rest for the remaining time. Keep breathing.`:'Move comfortably, without strain.')});if(n)reps[id]=n;};
@@ -95,7 +98,7 @@ export function choosePlan(profile:Answers,a:Answers,history:Session[],feedback:
  add(id,run?60:45,n);if(!run)steps.push({title:bi('استراحت','Rest'),seconds:15,phase:'work'});remaining-=60;i++;}
  if(remaining>0)steps.push({title:bi('استراحت و تنفس راحت','Rest and breathe comfortably'),seconds:remaining});
  add('cooldown',cool,undefined,'cooldown');
- const reason=low?bi('خواب، انرژی یا ریکاوری پایین؛ امروز فقط حرکت راحت.','Low sleep, energy or recovery: comfortable movement today.'):recovering?bi('عضلات از جلسه قدرتی قبل در حال ریکاوری‌اند؛ امروز هوازی راحت.','Recovering from recent strength training: easy movement today.'):first?bi('شروع کنترل‌شده بر اساس توان گزارش‌شده؛ چند تکرار ذخیره نگه دار، بدون آزمون بیشینه.','A controlled start based on your reported ability; keep repetitions in reserve, with no maximum test.'):bi('بر اساس زمان، مکان، توان هر گروه و بازخورد جلسه‌های قبل.','Based on time, place, ability in each group and previous feedback.');
+ const reason=low?bi('آمادگی پایین یا جلسه قبلی سخت یا ناتمام بوده؛ امروز فقط حرکت راحت.','Readiness is low, or the previous session was hard or unfinished: comfortable movement today.'):recovering?bi('برای ریکاوری پس از جلسه اخیر، امروز فقط حرکت راحت پیشنهاد می‌شود.','Allow recovery after your recent session; comfortable movement only today.'):first?bi('شروع کنترل‌شده بر اساس توان گزارش‌شده؛ چند تکرار ذخیره نگه دار، بدون آزمون بیشینه.','A controlled start based on your reported ability; keep repetitions in reserve, with no maximum test.'):bi('بر اساس زمان، مکان، توان هر گروه و بازخورد؛ زمان جلسه فقط با سه ثبت راحت و ریکاوری مناسب، حداکثر یک دقیقه بیشتر می‌شود.','Based on time, place, ability and feedback; duration grows by at most one minute after three easy, recovered records.');
  return {decision:{state:first?'return':low?'reduce':'hold',mode:run?'run':gentle?(a.place==='outside'?'walk':'home'):'strength',minutes:steps.reduce((n,s)=>n+s.seconds,0)/60,reason},steps,reps};
 }
 export interface Movement {name:Text;group:'push'|'legs'|'core'|'cardio';start:Text;end:Text;avoid:Text}
