@@ -1,5 +1,5 @@
 """V1 -> V2 upgrade and guided acceptance, synthetic data only."""
-import os,re,subprocess,time,xml.etree.ElementTree as ET,urllib.request,glob,sys
+import os,re,subprocess,time,xml.etree.ElementTree as ET,urllib.request,glob,sys,wave,array
 APP='com.mohammadamirhekmati.fityar'
 os.makedirs('screenshots',exist_ok=True)
 def adb(*args): return subprocess.check_output(['adb',*args],text=True,timeout=35)
@@ -29,12 +29,13 @@ def visible(node,root,label):
             b=list(map(int,re.findall(r'\d+',n.attrib['bounds'])))
             if b[1]>bottom*.7:navtop.append(b[1] if n.attrib.get('clickable')=='true' else b[1]-50)
     return box[3]<=min(navtop,default=bottom)
-def click(label,scroll=True):
+def click(label,scroll=True,before=None):
     for _ in range(12 if scroll else 2):
         root=tree()
         matches=[n for n in root.iter('node') if (n.attrib.get('text','').removeprefix('✓ ').casefold()==label.removeprefix('✓ ').casefold() or n.attrib.get('content-desc','').removeprefix('✓ ').casefold()==label.removeprefix('✓ ').casefold()) and visible(n,root,label)]
         matches.sort(key=lambda n:n.attrib.get('clickable')!='true')
         if matches:
+            if before:before()
             adb('shell','input','tap',*center(matches[0]));time.sleep(1.2);return
         if scroll:adb('shell','input','swipe','300','1450','300','600','350');time.sleep(.6)
     shot('missing-'+re.sub(r'[^a-zA-Z0-9]','_',label))
@@ -61,10 +62,21 @@ def enter(label,value):
 def answers(values):
     for v in values:click(v,True)
     click('Confirm and continue',True)
+def capture_audio(name,seconds):
+    return subprocess.Popen(['ffmpeg','-hide_banner','-loglevel','error','-y','-f','pulse','-i','fityar_test.monitor','-t',str(seconds),'-ac','1','-ar','16000','screenshots/'+name+'.wav'])
+
+def audio_peak(name):
+    with wave.open('screenshots/'+name+'.wav','rb') as f:
+        samples=array.array('h',f.readframes(f.getnframes()))
+    return max((abs(x) for x in samples),default=0)
+
 # UIAutomator helper disables idle waiting so live countdowns cannot return stale trees.
 for pattern in ['**/acceptance-debug.apk','**/acceptance-debug-androidTest.apk']:
     paths=glob.glob(pattern,recursive=True);assert paths,pattern;adb('install','-r',paths[0])
 urllib.request.urlretrieve('https://github.com/MohammadAmirHekmati/fityar/releases/download/v1.1.0-preview.12/fityar.apk','previous.apk')
+adb('shell','settings','put','system','sound_effects_enabled','0')
+adb('shell','settings','put','system','lockscreen_sounds_enabled','0')
+adb('shell','cmd','media_session','volume','--stream','3','--set','10')
 adb('install','-r','previous.apk');launch();click('EN');click('Get started')
 answers(['Yes','No','Knee push-up','6–10','Squat without a chair','Yes, getting down and up is comfortable','20 minutes or more','No or unsure'])
 click('Progress');enter('Weight (kg)','70');enter('Waist (cm)','90');click('Save measurements')
@@ -84,13 +96,25 @@ for label in ['No','No, I feel well','Enough and acceptable','Good']:click(label
 shot('05-duration-options');enter('Custom minutes','121');click('Use custom time');assert has('Enter a whole number');click('OK')
 enter('Custom minutes','37');click('Use custom time');click('Both indoors and outside');click('None');click('Confirm and continue');shot('06-custom-both-preview')
 assert seek('Knee push-up');assert seek('Today’s main work')
-click('Test workout sound');time.sleep(2)
+if os.environ.get('FITYAR_AUDIO_TEST')=='1':
+    baseline=capture_audio('audio-baseline',2);baseline.wait(timeout=10)
+    recording=[]
+    def start_capture():
+        recording.append(capture_audio('audio-test-tone',4));time.sleep(.5)
+    click('Test workout sound',before=start_capture);recording[0].wait(timeout=10)
+    assert audio_peak('audio-test-tone')>max(100,audio_peak('audio-baseline')*3),'Workout test produced no measurable audio'
+else:click('Test workout sound')
+time.sleep(2)
 click('Start plan');time.sleep(2);shot('07-active-warmup');pause_timer();shot('08-paused')
 for _ in range(4):click('Skip this step')
 assert has('Free squat'),'Warmup skip unexpectedly ended the whole session';shot('09-main-work')
 click('Resume');time.sleep(2);adb('shell','input','keyevent','3');time.sleep(3)
 assert 'WorkoutAudioService' in adb('shell','dumpsys','activity','services',APP),'Native audio service not running in background'
+background_capture=capture_audio('audio-screen-off',50) if os.environ.get('FITYAR_AUDIO_TEST')=='1' else None
 adb('shell','input','keyevent','26');time.sleep(50)
+if background_capture:
+    background_capture.wait(timeout=10)
+    assert audio_peak('audio-screen-off')>100,'No measurable workout audio with screen off'
 background_logs=adb('logcat','-d','-s','FitYarAudio:I')
 assert re.search(r'boundary [56]\b',background_logs),'No timer boundary while screen was off'
 adb('shell','input','keyevent','26');adb('shell','input','keyevent','82');shot('10-background');launch();pause_timer()
