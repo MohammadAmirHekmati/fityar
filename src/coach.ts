@@ -31,7 +31,7 @@ export const questions:Record<FlowKind,Question[]>={
 export const newFlow=(kind:FlowKind,target?:string):Flow=>({kind,cursor:0,answers:{},date:dayKey(),...(target?{target}:{})});
 export const validAnswer=(q:Question,value:string)=>q.key==='minutes'?/^\d+$/.test(value)&&Number(value)>=5&&Number(value)<=120:q.options.some(o=>o.id===value);
 export const flowChanged=(f:Flow)=>JSON.stringify(Object.entries(f.answers).sort())!==JSON.stringify(Object.entries(f.baseline??{}).sort());
-export function leaveFlow(c:CoachState,saveDraft=false):CoachState{return {...c,flow:undefined,draft:saveDraft?c.flow:undefined};}
+export function leaveFlow(c:CoachState,saveDraft=false):CoachState{return {...c,flow:undefined,draft:saveDraft?c.flow:c.draft};}
 export function answerFlow(flow:Flow,value:string):Flow {
  const list=questions[flow.kind],question=list[flow.cursor];
  if(!question||!validAnswer(question,value))throw Error('Invalid answer');
@@ -90,7 +90,7 @@ export function choosePlan(profile:Answers,a:Answers,history:Session[],feedback:
  const historyLimit=prior?Math.max(5,Math.floor(prior.planned)+(progressVolume?1:0)):initialLimit;
  const budget=Math.min(Number(a.minutes),first?initialLimit:120,historyLimit,low?5:120,gentle&&!prior?(Number(profile.cardio)||5):120)*60;
  if(budget<600)gentle=true;
- const selected=gentle?[a.place==='outside'?'walk':'march','step-touch']: [legId,...(pushId?[pushId]:[]),...(profile.core==='yes'&&!hard('core')?['bridge',done.length%2?'heel-slide':'bird-dog']:['calf','march'])];
+ const selected=[...new Set(gentle?[a.place==='outside'?'walk':'march','step-touch']: [legId,...(pushId?[pushId]:[]),...(profile.core==='yes'&&!hard('core')?['bridge',done.length%2?'heel-slide':'bird-dog']:['calf','march'])])];
  const steps:Step[]=[];
  const run=!first&&!low&&!recovering&&profile.run==='yes'&&profile.cardio==='20'&&a.place==='outside'&&budget>=1200&&done.slice(0,3).length===3&&done.slice(0,3).every(x=>x.effort<=5&&!x.pain&&x.recovery===2)&&!hard('cardio');
  const add=(id:string,seconds:number,n?:number,phase:Step['phase']='work')=>{steps.push({title:movements[id].name,exercise:id,seconds,phase,...(n?{reps:n}:{}),note:bi(n?`${n} تکرار آرام؛ بقیه زمان استراحت. نفس را حبس نکن.`:'با سرعت راحت، بدون فشار.',n?`${n} slow repetitions; rest for the remaining time. Keep breathing.`:'Move comfortably, without strain.')});if(n)reps[id]=n;};

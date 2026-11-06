@@ -74,3 +74,8 @@ test('Quick start preserves readiness, drafts, completed days and warmup / شر�
  assert.equal(quickStart(next,now),next);
  for(const patch of [{coach:{profile}},{coach:{...s.coach,flow:newFlow('intake')}},{sessions:[{...row,date:dayKey(new Date(now))}]},{coach:{...s.coach,ready:{...s.coach.ready,answers:{...daily,pain:'yes'}}}}]){const state={...s,...patch};assert.equal(quickStart(state,now),state);}
 });
+test('Saved reassessment survives cancelling a separate daily check / حفظ پیش‌نویس ارزیابی',()=>{
+ const draft=answerFlow({...newFlow('intake'),baseline:profile},'yes');
+ const coach={profile,draft,flow:newFlow('daily'),ready:{date:dayKey(new Date(now)),answers:daily}};
+ const next=leaveFlow(coach);assert.deepEqual(next.draft,draft);assert.deepEqual(next.profile,profile);assert.deepEqual(next.ready,coach.ready);validate({...initial,coach:next});
+});

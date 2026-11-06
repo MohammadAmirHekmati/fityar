@@ -26,8 +26,9 @@ export default function Coach({s,update,library=false,onNavigate}:Props){
  const last=s.sessions.filter(x=>x.status!=='missed').sort((a,b)=>b.at-a.at)[0];
  const finishFlow=()=>{
   if(!f)return;
-  if(f.kind==='intake'){update({onboard:true,coach:{...c,profile:f.answers,flow:undefined,draft:undefined,ready:undefined}});return;}
-  if(f.kind==='daily'){patch({ready:{date:dayKey(),answers:f.answers},flow:undefined,draft:undefined});return;}
+  const draft=c.draft?.kind===f.kind?undefined:c.draft;
+  if(f.kind==='intake'){update({onboard:true,coach:{...c,profile:f.answers,flow:undefined,draft,ready:undefined}});return;}
+  if(f.kind==='daily'){patch({ready:{date:dayKey(),answers:f.answers},flow:undefined,draft});return;}
   if(f.kind==='recovery'){update({sessions:s.sessions.map(x=>x.id===f.target?{...x,recovery:Number(f.answers.recovery)}:x),coach:{...c,flow:undefined,ready:undefined}});return;}
   if(f.kind==='adapt'){
    const a={...c.ready!.answers},reason=f.answers.reason;
@@ -40,7 +41,7 @@ export default function Coach({s,update,library=false,onNavigate}:Props){
    const record={id:String(at),date:dayKey(),at,mode:active.decision.mode,minutes:Math.round(seconds/6)/10,planned:duration/60,effort,pain,talk,status:(active.skipped.length||elapsed(active,at)<duration?'partial':'complete') as 'partial'|'complete',reason:active.decision.reason,before:active.before};
    const groups=performedGroups(active,at);
    const feedback={...c.feedback};for(const g of groups){feedback[g]=[...(feedback[g]??[]),{at,effort:f.answers.group===g?8:record.status==='partial'?Math.max(6,effort):effort,pain}];}
-   update({sessions:[record,...s.sessions],active:null,coach:{...c,flow:undefined,draft:undefined,ready:undefined,feedback}});
+   update({sessions:[record,...s.sessions],active:null,coach:{...c,flow:undefined,draft,ready:undefined,feedback}});
   }
  };
  if(library)return box(<>{txt(t('کتابخانه حرکت‌ها','Movement library'),26)}{txt(t('هر حرکت روش و تصویر خودش را دارد. توان یک حرکت به بقیه تعمیم داده نمی‌شود.','Each movement has its own instructions and images. Ability in one does not imply ability in others.'),15,muted)}{selected?<>{button(t('بازگشت به فهرست','Back to list'),()=>select(''),true)}{txt(movements[selected].name[s.lang],24)}<MovementView id={selected} lang={s.lang} ink={ink} details/></>:Object.entries(movements).map(([id,m])=><View key={id}>{button(m.name[s.lang],()=>select(id),true)}</View>)}</>);
@@ -62,7 +63,7 @@ export default function Coach({s,update,library=false,onNavigate}:Props){
   const index=ends.findIndex(end=>seconds<end),end=ends[index]??total,step=a.steps[index];
   const transition=!!step?.transition&&!a.transitions?.includes(index);
   const pause=()=>update({active:{...a,elapsed:seconds,started:now,paused:transition?false:!a.paused,...(transition?{transitions:[...(a.transitions??[]),index]}:{})}});
-  const result=()=>update({active:{...a,elapsed:seconds,started:now,paused:true},coach:{...c,flow:newFlow('post')}});
+  const result=()=>update({active:{...a,elapsed:seconds,started:now,paused:true},coach:{...c,flow:c.draft?.kind==='post'?c.draft:newFlow('post'),draft:c.draft?.kind==='post'?undefined:c.draft}});
   return box(<>{txt(t('جلسه امروز','Today’s session'),15,muted)}{txt(step?(step.phase==='warmup'?t('گرم‌کردن','Warm-up'):step.phase==='cooldown'?t('سردکردن','Cool-down'):t('تمرین','Exercise')):t('جلسه تمام شد','Session finished'),24)}
    {step?<>{txt(step.title[s.lang],27)}{txt(`${Math.max(0,Math.ceil(end-seconds))} ${t('ثانیه','seconds')}`,34)}{txt(`${index+1} / ${a.steps.length}`,14,muted)}{step.note&&txt(step.note[s.lang])}
    {step.phase==='work'&&step.exercise&&txt(`${t('ست / بازه','Set / interval')} ${a.steps.slice(0,index+1).filter(x=>x.phase==='work'&&x.exercise).length} / ${a.steps.filter(x=>x.phase==='work'&&x.exercise).length}`,16,muted)}

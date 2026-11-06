@@ -1,5 +1,5 @@
 """V1 -> V2 upgrade and guided acceptance, synthetic data only."""
-import os,re,subprocess,time,xml.etree.ElementTree as ET,urllib.request,glob
+import os,re,subprocess,time,xml.etree.ElementTree as ET,urllib.request,glob,sys
 APP='com.mohammadamirhekmati.fityar'
 os.makedirs('screenshots',exist_ok=True)
 def adb(*args): return subprocess.check_output(['adb',*args],text=True,timeout=35)
@@ -12,6 +12,11 @@ def center(n):
     return str((a[0]+a[2])//2),str((a[1]+a[3])//2)
 def shot(name):
     with open('screenshots/'+name+'.png','wb') as f:subprocess.run(['adb','exec-out','screencap','-p'],stdout=f,check=True)
+def on_error(kind,value,trace):
+    try:shot('failure')
+    finally:sys.__excepthook__(kind,value,trace)
+sys.excepthook=on_error
+
 def visible(node,root,label):
     box=list(map(int,re.findall(r'\d+',node.attrib.get('bounds',''))))
     if len(box)!=4 or box[2]<=box[0] or box[3]<=box[1]:return False
@@ -35,6 +40,12 @@ def click(label,scroll=True):
     shot('missing-'+re.sub(r'[^a-zA-Z0-9]','_',label))
     raise AssertionError('Missing control: '+label)
 def has(text):return any(text in n.attrib.get('text','') or text in n.attrib.get('content-desc','') for n in tree().iter('node'))
+def seek(text):
+    for _ in range(12):
+        if has(text):return True
+        adb('shell','input','swipe','300','1450','300','600','350');time.sleep(.5)
+    return False
+
 def pause_timer():
     click('Pause');assert has('Resume'),'Pause failed'
 
@@ -62,17 +73,17 @@ click('Food');click('Browse, favorites and logs');enter('Search food or alias','
 click('Today');click('My plan today');answers(['No','No, I feel well','Enough and acceptable','Good','20 minutes','Indoors','None']);shot('01-v2-ready')
 adb('shell','am','force-stop',APP);adb('shell','svc','wifi','disable');adb('shell','svc','data','disable');adb('install','-r','fityar.apk');launch()
 assert 'versionCode=3' in adb('shell','dumpsys','package',APP)
-assert has('Knee push-up'),'Guided profile or ready plan lost on upgrade';shot('02-upgraded-plan')
+assert seek('Knee push-up'),'Guided profile or ready plan lost on upgrade';shot('02-upgraded-plan')
 click('Progress');click('Last 7 readings average: 70.0 kg');click('Manually marked not done');shot('03-retained-data')
 click('Food');click('Browse, favorites and logs');enter('Search food or alias','Rice');click('Today’s food log');assert has('Rice · 1'),'Food record lost on upgrade'
-click('Today');click('Edit ability and restrictions');click('Exit check');assert has('Today’s main work'),'Unchanged reassessment did not exit'
-click('Edit ability and restrictions');click('No');click('Exit check');click('Discard changes');assert has('Knee push-up'),'Discard changed prior profile'
-click('Edit ability and restrictions');click('No');click('Exit check');click('Save for later');assert has('Knee push-up');click('Resume saved draft');click('Exit check');click('Discard changes');shot('04-cancel-preserves-plan')
+click('Today');click('Edit ability and restrictions');click('Exit check');assert has('My plan today'),'Unchanged reassessment did not exit'
+click('Edit ability and restrictions');click('No');click('Exit check');click('Discard changes');assert seek('Knee push-up'),'Discard changed prior profile'
+click('Edit ability and restrictions');click('No');click('Exit check');click('Save for later');assert seek('Knee push-up');click('Edit today’s answers');click('Exit check');click('Resume saved draft');click('Exit check');click('Discard changes');shot('04-cancel-preserves-plan')
 click('Edit today’s answers')
 for label in ['No','No, I feel well','Enough and acceptable','Good']:click(label)
 shot('05-duration-options');enter('Custom minutes','121');click('Use custom time');assert has('Enter a whole number');click('OK')
 enter('Custom minutes','37');click('Use custom time');click('Both indoors and outside');click('None');click('Confirm and continue');shot('06-custom-both-preview')
-assert has('Knee push-up');assert has('Today’s main work')
+assert seek('Knee push-up');assert seek('Today’s main work')
 click('Test workout sound');time.sleep(2)
 click('Start plan');time.sleep(2);shot('07-active-warmup');pause_timer();shot('08-paused')
 for _ in range(4):click('Skip this step')
@@ -86,7 +97,7 @@ adb('shell','input','keyevent','26');adb('shell','input','keyevent','82');shot('
 for _ in range(12):
     if any(n.attrib.get('text')=='Knee push-up' for n in tree().iter('node')):break
     click('Skip this step')
-assert has('Knee push-up');shot('11-push-set')
+assert seek('Knee push-up');shot('11-push-set')
 adb('shell','am','force-stop',APP);launch();assert has('Resume'),'Paused session lost'
 click('Finish early and record');answers(['Moderate — 5 out of 10','Yes','No','None']);assert has('Today’s session is saved');shot('12-saved-partial')
 click('Settings');adb('shell','pm','grant',APP,'android.permission.POST_NOTIFICATIONS');adb('shell','appops','set',APP,'SCHEDULE_EXACT_ALARM','allow')
