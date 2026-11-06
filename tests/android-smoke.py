@@ -53,6 +53,10 @@ click('This does not suit me today',True);answers(['No support available']);asse
 click('Start plan');time.sleep(2);shot('07-warmup-en')
 # A moving timer may prevent UIAutomator idling. Freeze by tapping the visible Pause control if needed.
 click('Pause',True);shot('08-paused-warmup')
+for _ in range(4):click('Skip this step',True)
+shot('08-strength-stage')
+for _ in range(2):click('Skip this step',True)
+shot('08-knee-work-stage')
 adb('shell','am','force-stop',APP);launch();assert has('Resume'),'Paused session did not persist'
 click('Finish early and record',True);answers(['Moderate — 5 out of 10','Yes','No','None']);shot('09-result-en')
 assert has('Today’s session is saved'),'Result not saved'
@@ -70,7 +74,7 @@ for _ in range(12):
 assert 'Movement reminder; check how you feel.' in dump,'Background test notification missing'
 adb('shell','cmd','statusbar','expand-notifications');shot('15-notification');adb('shell','input','keyevent','4');launch()
 # Compact viewport and large text: exercise navigation and capture real native screens.
-adb('shell','settings','put','system','font_scale','1.3');adb('shell','wm','size','960x1600');adb('shell','am','force-stop',APP);launch();click('Library');shot('16-compact-large-font');click('Settings');click('Today');shot('17-compact-today')
+adb('shell','settings','put','system','font_scale','1.3');adb('shell','wm','size','960x1600');adb('shell','am','force-stop',APP);launch();click('Library');shot('16-compact-large-font');click('Settings');click('Today');shot('17-compact-today');click('فا');shot('18-compact-persian')
 adb('shell','settings','put','system','font_scale','1.0');adb('shell','wm','size','reset')
 logs=adb('logcat','-d','-s','AndroidRuntime:E','ReactNativeJS:E')
 with open('screenshots/runtime.txt','w') as f:f.write(logs)

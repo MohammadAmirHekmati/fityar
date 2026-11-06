@@ -61,9 +61,10 @@ export default function Coach({s,update,library=false,onNavigate}:Props){
   return box(<>{txt(t('جلسه امروز','Today’s session'),15,muted)}{txt(step?(step.phase==='warmup'?t('گرم‌کردن','Warm-up'):step.phase==='cooldown'?t('سردکردن','Cool-down'):t('تمرین','Exercise')):t('جلسه تمام شد','Session finished'),24)}
    {step?<>{txt(step.title[s.lang],27)}{txt(`${Math.max(0,Math.ceil(end-seconds))} ${t('ثانیه','seconds')}`,34)}{txt(`${index+1} / ${a.steps.length}`,14,muted)}{step.note&&txt(step.note[s.lang])}
    {button(a.paused?t('ادامه','Resume'):t('مکث','Pause'),pause)}
+   {step.exercise&&<MovementView key={step.exercise} id={step.exercise} lang={s.lang} ink={ink} compact/>}
    {button(t('رد کردن این مرحله','Skip this step'),()=>update({active:{...a,elapsed:end,started:now,skipped:[...a.skipped,index],skippedSeconds:(a.skippedSeconds??0)+Math.max(0,end-seconds)}}),true)}
    {button(t('پایان زودتر و ثبت نتیجه','Finish early and record'),result,true)}
-   {step.exercise&&<MovementView id={step.exercise} lang={s.lang} ink={ink}/>}</>:<>{txt(t('حالا چند سؤال کوتاه برای برنامه بعدی.','A few short questions to guide your next session.'))}{button(t('ثبت نتیجه','Record result'),result)}</>}
+   </>:<>{txt(t('حالا چند سؤال کوتاه برای برنامه بعدی.','A few short questions to guide your next session.'))}{button(t('ثبت نتیجه','Record result'),result)}</>}
    {txt(t('با درد، سرگیجه یا علائم غیرعادی توقف کن؛ برای علائم شدید کمک فوری بگیر.','Stop with pain, dizziness or unusual symptoms; seek urgent help for severe symptoms.'),14,muted)}
    {txt(`${Math.floor(Math.min(seconds,total)/60)} / ${Math.round(total/60)} ${t('دقیقه','minutes')}`,14,muted)}
   </>);
