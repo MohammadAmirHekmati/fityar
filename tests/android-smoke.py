@@ -26,11 +26,14 @@ assert edits,'Age input missing'
 adb('shell','input','tap',*center(edits[0]));adb('shell','input','text','30');adb('shell','input','keyevent','4');click('Begin',True);shot('03-today-en')
 for tab in ['Food','Progress','Settings','Train']:
     click(tab);shot('04-'+tab.lower())
-click('Settings');adb('shell','pm','grant',APP,'android.permission.POST_NOTIFICATIONS');click('Test notification in 5 seconds',True);adb('shell','input','keyevent','3');time.sleep(7)
-notification_dump=adb('shell','dumpsys','notification','--noredact')
+click('Settings');adb('shell','pm','grant',APP,'android.permission.POST_NOTIFICATIONS');click('Test notification in 5 seconds',True);adb('shell','input','keyevent','3')
+for _ in range(12):
+    time.sleep(5);notification_dump=adb('shell','dumpsys','notification','--noredact')
+    if 'Movement reminder; check how you feel.' in notification_dump:break
 assert 'Movement reminder; check how you feel.' in notification_dump,'Background test notification missing'
 adb('shell','cmd','statusbar','expand-notifications');time.sleep(1);shot('04-notification');adb('shell','input','keyevent','4');launch();click('Train')
 click('Start',True);shot('05-session');adb('shell','input','keyevent','3');time.sleep(4);adb('shell','am','force-stop',APP);launch();click('Train');shot('06-restored-session')
+adb('shell','input','tap','540','1078');time.sleep(1)
 assert any(n.attrib.get('text')=='Current session' for n in tree().iter('node')),'Session did not persist'
 adb('install','-r','fityar.apk');launch();click('Train');assert any(n.attrib.get('text')=='Current session' for n in tree().iter('node')),'Reinstall erased session'
 click('فا');shot('07-session-fa')

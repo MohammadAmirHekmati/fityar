@@ -7,6 +7,7 @@ export const dayKey = (d = new Date()) =>
   `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 export type Mode = "walk" | "run" | "strength" | "home" | "short";
 export interface Session {
+  before?: Check;
   id: string;
   date: string;
   at: number;
@@ -238,6 +239,7 @@ export function plan(d: Decision, ratings:Ratings = {}): Step[] {
   return steps;
 }
 export interface Active {
+  before?: Check;
   started: number;
   elapsed: number;
   paused: boolean;

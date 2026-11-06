@@ -60,6 +60,7 @@ export function validate(value: unknown): State {
   const strings = (x: unknown) => Array.isArray(x) && x.length <= 10000 && x.every(str);
   const text = (x: unknown) => obj(x) && str(x.fa) && str(x.en);
   const modes = ['walk','run','strength','home','short'];
+  const before=(x:unknown)=>x===undefined||(obj(x)&&num(x.minutes,5,60)&&num(x.sleep,0,24)&&num(x.energy,1,5)&&typeof x.pain==='boolean'&&typeof x.symptoms==='boolean'&&typeof x.outside==='boolean'&&modes.includes(String(x.mode)));
   if (!obj(value)) return fail();
   const s = value as unknown as State;
   if(s.version!==1 || !['fa','en'].includes(s.lang) || typeof s.dark!=='boolean' || typeof s.onboard!=='boolean' || typeof s.vegetarian!=='boolean')return fail();
@@ -68,6 +69,7 @@ export function validate(value: unknown): State {
   if(!strings(s.favorites)||!strings(s.allergies)||!strings(s.available)||!obj(s.habits)||!Object.entries(s.habits).every(([k,v])=>date(k)&&strings(v)))return fail();
   if(s.sessions.some(x=>!obj(x)||!str(x.id)||!date(x.date)||!num(x.at,0,1e14)||!modes.includes(x.mode)||!num(x.minutes,0,300)||!num(x.planned,0,300)||!num(x.effort,0,10)||typeof x.talk!=='boolean'||typeof x.pain!=='boolean'||!['complete','partial','missed'].includes(x.status)||!text(x.reason)||(x.recovery!==undefined&&!num(x.recovery,1,10))))return fail();
   if(s.meals.some(x=>!obj(x)||!str(x.id)||!date(x.date)||!str(x.food)||!num(x.portion,.1,20)))return fail();
+  if(s.sessions.some(x=>!before(x.before))||(s.active&&!before(s.active.before)))return fail();
   if(s.measures.some(x=>!obj(x)||!date(x.date)||!num(x.weight,25,350)||!num(x.waist,35,250)))return fail();
   const r=s.reminders;if(!obj(r)||typeof r.enabled!=='boolean'||typeof r.water!=='boolean'||typeof r.move!=='boolean'||![r.hour,r.quietStart,r.quietEnd].every(v=>num(v,0,23)&&Number.isInteger(v))||!num(r.minute,0,59)||!Number.isInteger(r.minute))return fail();
   if(s.movementRatings!==undefined&&(!obj(s.movementRatings)||!Object.entries(s.movementRatings).every(([key,entries])=>['squat','push','lunge','bridge','w','deadbug','side','run'].includes(key)&&Array.isArray(entries)&&entries.every(x=>obj(x)&&num(x.at,0,1e14)&&num(x.effort,1,10)&&typeof x.pain==='boolean'))))return fail();

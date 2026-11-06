@@ -1,4 +1,5 @@
 import Illustration from "./Illustration";
+import {SafeAreaProvider,useSafeAreaInsets} from 'react-native-safe-area-context';
 import React, { useEffect, useState, useRef } from "react";
 import {
   Alert,
@@ -40,7 +41,9 @@ import {
 import { initial, load, save, State, validate } from "./storage";
 import { permission, syncNotifications, testNotification } from "./reminders";
 
-export default function App() {
+export default function App(){return <SafeAreaProvider><Main/></SafeAreaProvider>;}
+function Main() {
+  const insets=useSafeAreaInsets();
   const [s, setS] = useState<State>(() => load());
   const scrollRef=useRef<React.ComponentRef<typeof ScrollView>>(null);
   const latestState=useRef(s);
@@ -48,7 +51,8 @@ export default function App() {
   const [page, setPage] = useState("today"),
     [tick, setTick] = useState(() => Date.now()),
     [notice, setNotice] = useState("");
-  useEffect(()=>{scrollRef.current?.scrollTo({y:0,animated:false});},[page]);
+  const hasActive=s.active!==null;
+  useEffect(()=>{scrollRef.current?.scrollTo({y:0,animated:false});},[page,hasActive]);
   const [check, C] = useState<Check>({
     minutes: 20,
     sleep: 7,
@@ -296,6 +300,7 @@ export default function App() {
       pain,
       status: active.skipped.length || (total > 0 && seconds < total && !actual) ? "partial" : status,
       reason: active.decision.reason,
+      before: active.before,
     };
     update({ sessions: [x, ...s.sessions], active: null, movementRatings: x.mode==='run'?{...s.movementRatings,run:[...(s.movementRatings?.run??[]),{at:tick,effort,pain}]}:s.movementRatings });
     A("");
@@ -361,7 +366,8 @@ export default function App() {
       style={{
         flex: 1,
         backgroundColor: colors.bg,
-        paddingTop: StatusBar.currentHeight ?? 24,
+        paddingTop: insets.top,
+        paddingBottom:s.onboard?0:insets.bottom,
       }}
     >
       <StatusBar barStyle={s.dark ? "light-content" : "dark-content"} />
@@ -793,6 +799,7 @@ export default function App() {
                                 elapsed: 0,
                                 paused: false,
                                 steps: plan(d,s.movementRatings),
+                                before: {...check},
                                 decision: d,
                                 skipped: [],
                               },
@@ -1123,6 +1130,7 @@ export default function App() {
                           `${x.minutes} ${t("دقیقه", "min")} · ${x.effort}/10 · ${x.status === "complete" ? t("کامل", "complete") : x.status === "partial" ? t("نیمه‌کامل", "partial") : t("انجام نشد", "not done")}`,
                         )}
                         {txt(x.reason[s.lang], 13, true)}
+                        {x.before&&txt(`${t('پیش از جلسه: خواب','Before: sleep')} ${x.before.sleep} h · ${t('انرژی','energy')} ${x.before.energy}/5`,13,true)}
                         {txt(
                           t("ریکاوری: ", "Recovery: ") +
                             (x.recovery ?? t("ثبت نشده", "unrecorded")),
@@ -1426,6 +1434,7 @@ export default function App() {
             {
               backgroundColor: colors.card,
               borderColor: colors.border,
+            paddingBottom: Math.max(insets.bottom,10),
               flexDirection: fa ? "row-reverse" : "row",
             },
           ]}
