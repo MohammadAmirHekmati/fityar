@@ -22,7 +22,12 @@ def click(label,scroll=False):
 def has(text):return any(text in n.attrib.get('text','') for n in tree().iter('node'))
 def launch():adb('shell','monkey','-p',APP,'1');time.sleep(7)
 def enter(label,value):
-    click(label,True);adb('shell','input','text',value);adb('shell','input','keyevent','4');time.sleep(.5)
+    for _ in range(12):
+        edits=[n for n in tree().iter('node') if n.attrib.get('class')=='android.widget.EditText' and n.attrib.get('content-desc')==label]
+        if edits:
+            adb('shell','input','tap',*center(edits[0]));adb('shell','input','text',value);adb('shell','input','keyevent','4');time.sleep(.5);return
+        adb('shell','input','swipe','300','1450','300','600','350');time.sleep(.5)
+    raise AssertionError('Missing input: '+label)
 def answers(values):
     for v in values:click(v,True)
     click('Confirm and continue',True)
@@ -35,8 +40,8 @@ click('Food');click('Log today',True)
 click('Today');click('Mark today as not done',True);shot('01-v1-data')
 adb('shell','am','force-stop',APP);adb('install','-r','fityar.apk');launch();shot('02-upgraded')
 assert 'versionCode=2' in adb('shell','dumpsys','package',APP),'Wrong versionCode'
-click('Progress');assert has('70.0 kg'),'V1 measurement lost';shot('03-retained-measurement')
-click('Food');click('Browse, favorites and logs');click('Today’s food log',True);assert has('1'),'V1 food missing';shot('04-retained-food')
+click('Progress');click('Last 7 readings average: 70.0 kg',True);shot('03-retained-measurement');click('Manually marked not done',True);shot('03-retained-history')
+click('Food');click('Browse, favorites and logs');enter('Search food or alias','Rice');click('Today’s food log',True);assert has('Rice · 1'),'V1 food missing';shot('04-retained-food')
 click('Today');click('Get started');click('Yes');click('No');shot('05-question-en')
 # Question cursor persists across force-stop, and back/edit works.
 adb('shell','am','force-stop',APP);launch();assert has('Which push-up'),'Question did not persist'
