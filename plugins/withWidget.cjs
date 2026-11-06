@@ -7,7 +7,7 @@ module.exports=config=>{
  return withDangerousMod(config,['android',async c=>{const root=path.join(c.modRequest.platformProjectRoot,'app/src/main');files['java/com/mohammadamirhekmati/fityar/WorkoutAudioService.kt']=fs.readFileSync(path.join(__dirname,'native/WorkoutAudioService.kt'),'utf8');for(const [name,content] of Object.entries(files)){const dest=path.join(root,name);fs.mkdirSync(path.dirname(dest),{recursive:true});fs.writeFileSync(dest,content);}return c;}]);
 };
 const files={
-'res/xml/fityar_widget_info.xml':`<appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android" android:minWidth="250dp" android:minHeight="110dp" android:updatePeriodMillis="1800000" android:initialLayout="@layout/fityar_widget" android:resizeMode="horizontal|vertical" android:widgetCategory="home_screen"/>`,
+'res/xml/fityar_widget_info.xml':`<appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android" android:minWidth="250dp" android:minHeight="180dp" android:minResizeHeight="180dp" android:updatePeriodMillis="1800000" android:initialLayout="@layout/fityar_widget" android:resizeMode="horizontal|vertical" android:widgetCategory="home_screen"/>`,
 'res/layout/fityar_widget.xml':`<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android" android:id="@+id/widget_root" android:layout_width="match_parent" android:layout_height="match_parent" android:orientation="vertical" android:padding="16dp" android:background="#1b2b33"><TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="FitYar · فیت‌یار" android:textSize="18sp" android:textColor="#b9ec85"/><TextView android:id="@+id/widget_status" android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1" android:textSize="16sp" android:textColor="#ffffff"/><Button android:id="@+id/widget_start" android:layout_width="match_parent" android:layout_height="wrap_content" android:minHeight="48dp" android:text="Open / باز کردن"/></LinearLayout>`,
 'java/com/mohammadamirhekmati/fityar/FitYarWidget.kt':`package com.mohammadamirhekmati.fityar
 import android.app.PendingIntent
@@ -41,7 +41,7 @@ class FitYarWidget:AppWidgetProvider(){
     views.setTextViewText(R.id.widget_status,status)
     views.setTextViewText(R.id.widget_start,action)
     views.setInt(R.id.widget_root,"setLayoutDirection",if(fa)1 else 0)
-    val intent=Intent(Intent.ACTION_VIEW,Uri.parse("fityar://today"),context,MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+    val intent=Intent(Intent.ACTION_VIEW,Uri.parse(if(fresh&&prefs.getBoolean("start",false))"fityar://today?start=1" else "fityar://today"),context,MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP)
     val pending=PendingIntent.getActivity(context,0,intent,PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
     views.setOnClickPendingIntent(R.id.widget_start,pending)
     manager.updateAppWidget(id,views)
@@ -51,16 +51,16 @@ class FitYarWidget:AppWidgetProvider(){
 }
 class FitYarWidgetModule(private val ctx:ReactApplicationContext):ReactContextBaseJavaModule(ctx){
  override fun getName()="FitYarWidget"
- @ReactMethod fun update(date:String,status:String,action:String,fa:Boolean){ctx.getSharedPreferences("fityar_widget",Context.MODE_PRIVATE).edit().putString("date",date).putString("status",status).putString("action",action).putBoolean("fa",fa).apply();FitYarWidget.refresh(ctx)}
+ @ReactMethod fun update(date:String,status:String,action:String,fa:Boolean,start:Boolean){ctx.getSharedPreferences("fityar_widget",Context.MODE_PRIVATE).edit().putString("date",date).putString("status",status).putString("action",action).putBoolean("fa",fa).putBoolean("start",start).apply();FitYarWidget.refresh(ctx)}
  @ReactMethod fun audio(state:String){
   val data=org.json.JSONObject(state)
   if(!data.optBoolean("enabled",true))ctx.getSharedPreferences("workout_audio",Context.MODE_PRIVATE).edit().putBoolean("muted",false).apply()
   if(!data.optBoolean("enabled",true)||data.optBoolean("paused",true)){ctx.stopService(Intent(ctx,WorkoutAudioService::class.java));return}
   if(ctx.getSharedPreferences("workout_audio",Context.MODE_PRIVATE).getBoolean("muted",false)&&data.optString("id")==ctx.getSharedPreferences("workout_audio",Context.MODE_PRIVATE).getString("session",""))return
   ctx.getSharedPreferences("workout_audio",Context.MODE_PRIVATE).edit().putString("session",data.optString("id")).apply()
-  try{ctx.startForegroundService(Intent(ctx,WorkoutAudioService::class.java).putExtra("state",state))}catch(e:IllegalStateException){android.util.Log.w("FitYarAudio","Start requires foreground")}
+  try{val intent=Intent(ctx,WorkoutAudioService::class.java).putExtra("state",state);if(Build.VERSION.SDK_INT>=26)ctx.startForegroundService(intent)else ctx.startService(intent)}catch(e:IllegalStateException){android.util.Log.w("FitYarAudio","Start requires foreground")}
  }
- @ReactMethod fun testAudio(volume:Int){ctx.startForegroundService(Intent(ctx,WorkoutAudioService::class.java).setAction("test").putExtra("volume",volume))}
+ @ReactMethod fun testAudio(volume:Int){val intent=Intent(ctx,WorkoutAudioService::class.java).setAction("test").putExtra("volume",volume);if(Build.VERSION.SDK_INT>=26)ctx.startForegroundService(intent)else ctx.startService(intent)}
  @ReactMethod fun pin(promise:Promise){if(Build.VERSION.SDK_INT>=26){val manager=AppWidgetManager.getInstance(ctx);promise.resolve(manager.isRequestPinAppWidgetSupported && manager.requestPinAppWidget(ComponentName(ctx,FitYarWidget::class.java),null,null))}else promise.resolve(false)}
 }
 class FitYarWidgetPackage:ReactPackage{

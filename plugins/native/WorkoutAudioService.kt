@@ -19,7 +19,7 @@ class WorkoutAudioService:Service(){
  private var muted=false
  private val runner=object:Runnable{override fun run(){tick();handler.postDelayed(this,200)}}
  override fun onBind(intent:Intent?)=null
- override fun onCreate(){super.onCreate();val manager=getSystemService(NotificationManager::class.java);manager.createNotificationChannel(NotificationChannel("workout-audio","Workout timer / صدای تمرین",NotificationManager.IMPORTANCE_LOW).apply{setSound(null,null);enableVibration(false)})}
+ override fun onCreate(){super.onCreate();val manager=getSystemService(NotificationManager::class.java);if(Build.VERSION.SDK_INT>=26)manager.createNotificationChannel(NotificationChannel("workout-audio","Workout timer / صدای تمرین",NotificationManager.IMPORTANCE_LOW).apply{setSound(null,null);enableVibration(false)})}
  override fun onStartCommand(intent:Intent?,flags:Int,startId:Int):Int{
   if(intent?.action=="mute"){muted=true;getSharedPreferences("workout_audio",MODE_PRIVATE).edit().putBoolean("muted",true).apply();stopSelf();return START_NOT_STICKY}
   if(intent?.action=="test"){startForeground(812,notification("Sound test / آزمایش صدا"));play(ToneGenerator.TONE_PROP_ACK,500,intent.getIntExtra("volume",60));handler.postDelayed({stopSelf()},900);return START_NOT_STICKY}
@@ -34,7 +34,7 @@ class WorkoutAudioService:Service(){
  private fun notification(text:String):Notification{
   val open=PendingIntent.getActivity(this,1,Intent(this,MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP),PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
   val stop=PendingIntent.getService(this,2,Intent(this,WorkoutAudioService::class.java).setAction("mute"),PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
-  return Notification.Builder(this,"workout-audio").setSmallIcon(android.R.drawable.ic_media_play).setContentTitle("FitYar").setContentText(text).setContentIntent(open).setOngoing(true).addAction(Notification.Action.Builder(null,"Mute / بی‌صدا",stop).build()).build()
+  return (if(Build.VERSION.SDK_INT>=26)Notification.Builder(this,"workout-audio") else Notification.Builder(this)).setSmallIcon(android.R.drawable.ic_media_play).setContentTitle("FitYar").setContentText(text).setContentIntent(open).setOngoing(true).addAction(Notification.Action.Builder(null,"Mute / بی‌صدا",stop).build()).build()
  }
  private fun tick(){
   val steps=state.optJSONArray("steps")?:return
@@ -74,13 +74,14 @@ class WorkoutAudioService:Service(){
   val audio=getSystemService(AUDIO_SERVICE) as AudioManager
   val manager=getSystemService(NotificationManager::class.java)
   if(muted||audio.ringerMode!=AudioManager.RINGER_MODE_NORMAL||manager.currentInterruptionFilter!=NotificationManager.INTERRUPTION_FILTER_ALL||audio.getStreamVolume(AudioManager.STREAM_MUSIC)==0)return
-  tone?.release();focus?.let{audio.abandonAudioFocusRequest(it)}
-  val request=AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN_TRANSIENT_MAY_DUCK).setAudioAttributes(AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_MEDIA).setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION).build()).setOnAudioFocusChangeListener{change->if(change<0)tone?.stopTone()}.build()
+  tone?.release();if(Build.VERSION.SDK_INT>=26)focus?.let{audio.abandonAudioFocusRequest(it)}
+  val request=if(Build.VERSION.SDK_INT>=26)AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN_TRANSIENT_MAY_DUCK).setAudioAttributes(AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_MEDIA).setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION).build()).setOnAudioFocusChangeListener{change->if(change<0)tone?.stopTone()}.build() else null
   focus=request
-  if(audio.requestAudioFocus(request)!=AudioManager.AUDIOFOCUS_REQUEST_GRANTED)return
+  val granted=if(Build.VERSION.SDK_INT>=26&&request!=null)audio.requestAudioFocus(request) else audio.requestAudioFocus(null,AudioManager.STREAM_MUSIC,AudioManager.AUDIOFOCUS_GAIN_TRANSIENT_MAY_DUCK)
+  if(granted!=AudioManager.AUDIOFOCUS_REQUEST_GRANTED)return
   tone=ToneGenerator(AudioManager.STREAM_MUSIC,volume.coerceIn(0,100));tone?.startTone(kind,duration)
-  if(state.optBoolean("vibrate",false)){val v=getSystemService(VIBRATOR_SERVICE) as Vibrator;v.vibrate(VibrationEffect.createOneShot(100,VibrationEffect.DEFAULT_AMPLITUDE))}
-  handler.postDelayed({tone?.stopTone();audio.abandonAudioFocusRequest(request)},duration.toLong()+20)
+  if(state.optBoolean("vibrate",false)){val v=getSystemService(VIBRATOR_SERVICE) as Vibrator;if(Build.VERSION.SDK_INT>=26)v.vibrate(VibrationEffect.createOneShot(100,VibrationEffect.DEFAULT_AMPLITUDE)) else v.vibrate(100)}
+  handler.postDelayed({tone?.stopTone();if(Build.VERSION.SDK_INT>=26&&request!=null)audio.abandonAudioFocusRequest(request) else audio.abandonAudioFocus(null)},duration.toLong()+20)
  }
- override fun onDestroy(){handler.removeCallbacksAndMessages(null);tone?.release();focus?.let{(getSystemService(AUDIO_SERVICE) as AudioManager).abandonAudioFocusRequest(it)};wake?.let{if(it.isHeld)it.release()};super.onDestroy()}
+ override fun onDestroy(){handler.removeCallbacksAndMessages(null);tone?.release();if(Build.VERSION.SDK_INT>=26)focus?.let{(getSystemService(AUDIO_SERVICE) as AudioManager).abandonAudioFocusRequest(it)};wake?.let{if(it.isHeld)it.release()};super.onDestroy()}
 }

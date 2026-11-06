@@ -17,7 +17,7 @@ import java.io.File;
 public class Dump {
  @Test public void dump() throws Exception {
   Configurator.getInstance().setWaitForIdleTimeout(0).setWaitForSelectorTimeout(0);
-  UiDevice.getInstance(InstrumentationRegistry.getInstrumentation()).dumpWindowHierarchy(new File("/sdcard/window.xml"));
+  UiDevice.getInstance(InstrumentationRegistry.getInstrumentation()).dumpWindowHierarchy(new File(InstrumentationRegistry.getInstrumentation().getTargetContext().getExternalFilesDir(null),"window.xml"));
  }
 }
 `);

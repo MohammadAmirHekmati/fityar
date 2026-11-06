@@ -13,7 +13,8 @@ export function reminderEvents(s:State,now=Date.now()):ReminderEvent[]{
   const recovery=previous&&previous.recovery===undefined&&new Date(previous.at+86400000).toDateString()===d.toDateString();
   if(!ledger?.skip&&!done){
    const kind=s.active&&i===0?'partial':recovery?'recovery':'exercise';
-   const at=ledger?.snoozeUntil??d.getTime();
+   const activeAt=s.active&&i===0?s.active.started+(s.active.paused?30*60000:Math.max(0,s.active.steps.reduce((n,x)=>n+x.seconds,0)-s.active.elapsed)*1000+15*60000):d.getTime();
+   const at=ledger?.snoozeUntil??(s.active&&i===0?activeAt:d.getTime());
    add(at,kind,date);
    // A fixed single follow-up per date. Reopening never pushes it further into the future.
    if(!ledger?.snoozes)add(at+45*60000,'followup',date);

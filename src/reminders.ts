@@ -28,11 +28,11 @@ async function apply(s:State){
   await N.scheduleNotificationAsync({identifier:id,content:{title:'FitYar / فیت‌یار',body,data,categoryIdentifier:actions?'fitness-actions':undefined,sound:s.reminders.strong?'default':false},trigger:{type:N.SchedulableTriggerInputTypes.DATE,date:new Date(at),channelId:s.reminders.strong?'fitness-strong':'fitness-gentle'}});
  };
  const bodies={exercise:t('وقت تمرین انتخابی تو؛ حال امروز را بررسی کن.','Your chosen exercise time; check how you feel.'),followup:t('یک پیگیری کوتاه؛ شروع، تعویق یا امروز نمی‌توانم.','One follow-up: start, snooze, or skip today.'),prep:t('طبق ساعت پایان کار اعلام‌شده، کفش و لباس را آماده کن.','At your declared work-end time, prepare shoes and clothes.'),partial:t('جلسه باز مانده؛ ادامه بده یا همان مقدار انجام‌شده را ثبت کن.','An open session: resume or record only what you did.'),recovery:t('ریکاوری جلسه قبل را ثبت کن.','Record recovery from your last session.'),water:t('طبق تشنگی آب بنوش.','Drink according to thirst.'),move:t('اگر راحتی کمی راه برو.','Take a comfortable movement break.')};
- for(const e of reminderEvents(s))await schedule(e.id,e.at,bodies[e.kind],{kind:e.kind,date:e.date});
+ for(const e of reminderEvents(s))await schedule(e.id,e.at,bodies[e.kind],{kind:e.kind,date:e.date},!['water','move','prep'].includes(e.kind));
  // Clear obsolete delivered reminders too, including snoozes after a saved session.
  for(const n of await N.getPresentedNotificationsAsync()){
   const date=String(n.request.content.data?.date??'');
-  if(!s.reminders.enabled||s.sessions.some(x=>x.date===date)||s.reminders.days?.[date]?.skip)await N.dismissNotificationAsync(n.request.identifier);
+  if(n.request.content.data?.kind&&(!s.reminders.enabled||s.sessions.some(x=>x.date===date)||s.reminders.days?.[date]?.skip))await N.dismissNotificationAsync(n.request.identifier);
  }
 
 }

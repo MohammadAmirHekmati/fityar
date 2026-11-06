@@ -1,3 +1,4 @@
+import {quickStart} from '../src/quickStart.ts';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {choosePlan,answerFlow,newFlow,completeAnswers,leaveFlow,flowChanged} from '../src/coach.ts';
@@ -66,4 +67,10 @@ test('Long availability never creates unlimited strength sets / زمان بیش�
  const p=choosePlan(profile,{...daily,minutes:'120'},history.map(x=>({...x,planned:110})),{},now);
  for(const id of ['squat-free','push-knee','bridge','heel-slide','bird-dog'])assert.ok(p.steps.filter(s=>s.phase==='work'&&s.exercise===id).length<=3);
  assert.ok(p.decision.minutes>20);assert.ok(p.steps.some(s=>s.phase==='work'&&s.exercise==='march'));
+});
+test('Quick start preserves readiness, drafts, completed days and warmup / شروع آسان ایمن',()=>{
+ const s={...initial,onboard:true,coach:{profile,ready:{date:dayKey(new Date(now)),answers:daily}}};
+ const next=quickStart(s,now);assert.ok(next.active);assert.equal(next.active.steps[0].phase,'warmup');assert.equal(next.active.elapsed,0);
+ assert.equal(quickStart(next,now),next);
+ for(const patch of [{coach:{profile}},{coach:{...s.coach,flow:newFlow('intake')}},{sessions:[{...row,date:dayKey(new Date(now))}]},{coach:{...s.coach,ready:{...s.coach.ready,answers:{...daily,pain:'yes'}}}}]){const state={...s,...patch};assert.equal(quickStart(state,now),state);}
 });

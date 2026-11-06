@@ -117,11 +117,14 @@ export function choosePlan(profile:Answers,a:Answers,history:Session[],feedback:
    const split=steps.findIndex((s,i)=>s.phase==='work'&&steps.slice(0,i).reduce((n,x)=>n+x.seconds,0)>=budget/2);
    if(split>0){
      const tail=steps.slice(split).reduce((n,x)=>n+x.seconds,0);
+     const mixedRun=profile.run==='yes'&&profile.cardio==='20'&&tail>=900&&done.some(x=>['run','walk'].includes(x.mode)&&x.planned>=20&&x.recovery===2)&&!hard('cardio');
+     const outsideWork:Step[]=[];let workSeconds=tail-(mixedRun?660:420),j=0;
+     while(workSeconds>0){const seconds=Math.min(60,workSeconds),id=mixedRun&&j%2===0&&seconds===60?'jog':'walk';outsideWork.push({title:movements[id].name,exercise:id,phase:'work',location:'outside',seconds});workSeconds-=seconds;j++;}
      steps.splice(split,steps.length-split,
        {title:movements.cooldown.name,exercise:'cooldown',phase:'cooldown',location:'inside',seconds:60},
        {title:movements.walk.name,exercise:'walk',phase:'warmup',location:'outside',transition:true,seconds:300,note:bi('به مسیر امن برو؛ وقتی آماده‌ای ادامه را بزن.','Move to a safe route; press resume when ready.')},
-       {title:movements.walk.name,exercise:'walk',phase:'work',location:'outside',seconds:tail-420},
-       {title:movements.cooldown.name,exercise:'cooldown',phase:'cooldown',location:'outside',seconds:60});
+       ...outsideWork,
+       {title:movements.cooldown.name,exercise:'cooldown',phase:'cooldown',location:'outside',seconds:mixedRun?300:60});
    }
  }
  const reason=low?bi('آمادگی پایین یا جلسه قبلی سخت یا ناتمام بوده؛ امروز فقط حرکت راحت.','Readiness is low, or the previous session was hard or unfinished: comfortable movement today.'):recovering?bi('برای ریکاوری پس از جلسه اخیر، امروز فقط حرکت راحت پیشنهاد می‌شود.','Allow recovery after your recent session; comfortable movement only today.'):first?bi('شروع کوتاه و کنترل‌شده بر اساس توان گزارش‌شده؛ جلسه ارزیابی نیست. چند تکرار ذخیره نگه دار؛ پس از ثبت نتیجه و ریکاوری، برنامه بعدی تنظیم می‌شود.','A short, controlled start based on reported ability, not an assessment. Keep repetitions in reserve; record your result and recovery to guide the next plan.'):bi('بر اساس زمان، مکان، توان هر گروه و بازخورد؛ زمان جلسه فقط با سه ثبت راحت و ریکاوری مناسب، حداکثر یک دقیقه بیشتر می‌شود.','Based on time, place, ability and feedback; duration grows by at most one minute after three easy, recovered records.');

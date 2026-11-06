@@ -43,6 +43,7 @@ import {
 import { initial, load, save, State, validate } from "./storage";
 import { syncNotifications,listenResponses,clearResponse } from "./reminders";
 import {reminderAction} from './reminderPlan';
+import {quickStart} from './quickStart';
 import {syncWidget,syncAudio} from './widget';
 
 export default function App(){return <SafeAreaProvider><Main/></SafeAreaProvider>;}
@@ -120,15 +121,15 @@ function Main() {
     );
   }, [s]);
   useEffect(()=>{
-    const open=()=>setPage('today');
-    const link=Linking.addEventListener('url',e=>{if(e.url.startsWith('fityar://today'))open();});
-    Linking.getInitialURL().then(url=>{if(url?.startsWith('fityar://today'))open();});
+    const open=(start=false)=>{if(start)setS(old=>quickStart(old));setPage('today');};
+    const link=Linking.addEventListener('url',e=>{if(e.url.startsWith('fityar://today'))open(e.url.includes('start=1'));});
+    Linking.getInitialURL().then(url=>{if(url?.startsWith('fityar://today'))open(url.includes('start=1'));});
     const stop=listenResponses(response=>{
       const request=response.notification.request;
       const action=response.actionIdentifier==='snooze'?'snooze':response.actionIdentifier==='skip'?'skip':'start';
       const date=String(request.content.data?.date??dayKey());
       const id=`${request.identifier}-${response.notification.date}-${action}`;
-      setS(old=>reminderAction(old,action,id,date));
+      setS(old=>{const next=reminderAction(old,action,id,date);return response.actionIdentifier==='start'&&next!==old?quickStart(next):next;});
       open();clearResponse().catch(()=>{});
     });
     return()=>{link.remove();stop();};

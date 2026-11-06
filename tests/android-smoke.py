@@ -6,7 +6,7 @@ def adb(*args): return subprocess.check_output(['adb',*args],text=True,timeout=3
 def tree():
     result=adb('shell','am','instrument','-w','-e','class','fityar.test.Dump','fityar.acceptance.test/androidx.test.runner.AndroidJUnitRunner')
     assert 'FAILURES' not in result,result
-    return ET.fromstring(adb('shell','cat','/sdcard/window.xml'))
+    return ET.fromstring(adb('shell','cat','/sdcard/Android/data/fityar.acceptance/files/window.xml'))
 def center(n):
     a=list(map(int,re.findall(r'\d+',n.attrib['bounds'])))
     return str((a[0]+a[2])//2),str((a[1]+a[3])//2)

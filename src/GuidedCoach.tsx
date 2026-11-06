@@ -90,6 +90,7 @@ export default function Coach({s,update,library=false,onNavigate}:Props){
    {txt(!plan.steps.length?t('استراحت یا بررسی بیشتر','Rest or further assessment'):plan.decision.state==='return'?t('شروع کوتاه','Short starting session'):plan.decision.mode==='home'?t('حرکت راحت / ریکاوری','Comfortable movement / recovery'):names[plan.decision.mode][s.lang],24)}{txt(plan.decision.reason[s.lang])}
    {!!plan.steps.length&&<>{txt(`${plan.decision.minutes} ${t('دقیقه، با گرم‌کردن و سردکردن','minutes, including warm-up and cool-down')}`,19)}{txt([...new Set(plan.steps.filter(x=>x.exercise).map(x=>x.title[s.lang]))].join(' • '),16,muted)}
    {txt(t('تمرین اصلی امروز','Today’s main work'),21)}
+   {plan.steps.some(x=>x.transition)&&txt(t('خانه + بیرون؛ برای جابه‌جایی توقف دستی داریم.','Indoors + outside, with a manual pause for moving between locations.'),16,muted)}
    {[...new Set(plan.steps.filter(x=>x.phase==='work'&&x.exercise).map(x=>x.exercise!))].map(id=>{const sets=plan.steps.filter(x=>x.phase==='work'&&x.exercise===id);return <View key={id}>{txt(`${movements[id].name[s.lang]} · ${sets.length} ${t('ست / بازه','sets / intervals')} · ${sets[0].reps?`${sets[0].reps} ${t('تکرار در هر ست','reps per set')}`:`${sets.map(x=>x.seconds).join(' + ')} ${t('ثانیه','seconds')}`}`,16)}</View>;})}
    {txt(t('زمان ست شامل فرصت انجام آرام تکرارهاست؛ بقیه آن استراحت است. تعداد انجام‌شده خودکار شمرده نمی‌شود.','Set windows allow slow repetitions, then rest. Completed repetitions are not counted automatically.'),14,muted)}
    <AudioControls s={s} update={update}/>
