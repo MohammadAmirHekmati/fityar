@@ -1,0 +1,57 @@
+name: Android APK / ساخت اندروید
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+permissions:
+  contents: write
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+      - uses: android-actions/setup-android@v3
+      - name: Install and verify / نصب و بررسی
+        run: |
+          npm ci
+          npm run typecheck
+          npm test
+          npx expo prebuild --platform android --no-install
+      - name: Build release / ساخت نسخه انتشار
+        working-directory: android
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleRelease --no-daemon -PreactNativeArchitectures=arm64-v8a,armeabi-v7a,x86_64
+      - name: Sign APK / امضای بسته
+        env:
+          KEYSTORE: ${{ secrets.ANDROID_KEYSTORE }}
+          STORE_PASSWORD: ${{ secrets.ANDROID_STORE_PASSWORD }}
+        run: |
+          printf '%s' "$KEYSTORE" | base64 -d > "$RUNNER_TEMP/release.p12"
+          APK=android/app/build/outputs/apk/release/app-release.apk
+          BUILD_TOOLS=$(find "$ANDROID_HOME/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -1)
+          "$BUILD_TOOLS/apksigner" sign --ks "$RUNNER_TEMP/release.p12" --ks-type PKCS12 --ks-key-alias fityar --ks-pass env:STORE_PASSWORD --key-pass env:STORE_PASSWORD --out fityar.apk "$APK"
+          "$BUILD_TOOLS/apksigner" verify --verbose fityar.apk
+          rm "$RUNNER_TEMP/release.p12"
+          sha256sum fityar.apk > fityar.apk.sha256
+      - uses: actions/upload-artifact@v4
+        with:
+          name: fityar-apk
+          path: |
+            fityar.apk
+            fityar.apk.sha256
+      - name: Publish preview / انتشار پیش‌نمایش
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release view v1.0.0-preview >/dev/null 2>&1 || gh release create v1.0.0-preview --prerelease --title 'FitYar preview / پیش‌نمایش فیت‌یار' --notes-file RELEASE.md
+          gh release upload v1.0.0-preview fityar.apk fityar.apk.sha256 --clobber
