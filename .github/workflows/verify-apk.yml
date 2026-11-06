@@ -6,6 +6,10 @@ on:
         description: 'Build run ID / شناسه اجرای ساخت'
         required: true
         type: string
+      extended_only:
+        description: 'Only extended scenarios after a verified basic run / فقط سناریوهای گسترده پس از تأیید پایه'
+        type: boolean
+        default: false
       publish:
         description: 'Publish after success / انتشار پس از موفقیت'
         type: boolean
@@ -51,6 +55,8 @@ jobs:
           echo 'FITYAR_AUDIO_TEST=1' >> "$GITHUB_ENV"
       - name: Emulator acceptance / پذیرش شبیه‌ساز
         uses: reactivecircus/android-emulator-runner@v2
+        env:
+          FITYAR_EXTENDED_ONLY: ${{ inputs.extended_only && '1' || '0' }}
         with:
           api-level: 35
           arch: x86_64

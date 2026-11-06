@@ -45,8 +45,8 @@ boundary=sum(x['seconds'] for x in active['steps'][:transition])
 assert all(x.get('location')=='outside' for x in active['steps'] if x.get('exercise')=='jog')
 assert all(x.get('location')=='inside' for x in active['steps'] if x.get('exercise','').startswith('push'))
 def at_transition(s):s['active'].update(elapsed=boundary,started=device_now()-1200000,paused=False)
-snapshot(at_transition);launch();assert seek('Ready; continue at next location');assert has('300 seconds');time.sleep(6);assert has('300 seconds'),'Location transfer auto-started';shot('20-manual-transition')
-click('Ready; continue at next location');pause_timer();assert has('Location: outside');shot('21-outdoor-warmup')
+snapshot(at_transition);launch();assert seek('Ready; continue at next location');assert wait_has('300 seconds');time.sleep(6);assert wait_has('300 seconds'),'Location transfer auto-started';shot('20-manual-transition')
+click('Ready; continue at next location');pause_timer();assert wait_has('Location: outside');shot('21-outdoor-warmup')
 a=snapshot()['active'];assert transition in a['transitions'];assert boundary<=a['elapsed']<boundary+40,'Transfer time counted as exercise'
 click('Finish early and record');answers(['Moderate — 5 out of 10','Yes','No','None'])
 assert snapshot()['sessions'][0]['status']=='partial'
@@ -60,8 +60,8 @@ for direction in [(900,200),(200,900)]:
         if has('Start with warm-up'):break
         adb('shell','input','swipe',str(direction[0]),'1000',str(direction[1]),'1000','300');time.sleep(.5)
     if has('Start with warm-up'):break
-assert has('Start with warm-up'),'Pinned widget did not refresh to ready state';shot('22-ready-widget')
-click('Start with warm-up',False);time.sleep(3);assert has('Warm-up');pause_timer();shot('23-widget-start')
+assert wait_has('Start with warm-up'),'Pinned widget did not refresh to ready state';shot('22-ready-widget')
+click('Start with warm-up',False);time.sleep(3);assert wait_has('Warm-up');pause_timer();shot('23-widget-start')
 # Native notification actions; only the emulator clock is advanced, never the host clock.
 adb('shell','settings','put','global','auto_time','0')
 noon=datetime.datetime.fromtimestamp(device_now()/1000,datetime.timezone.utc).replace(hour=12,minute=0,second=0,microsecond=0)
@@ -73,7 +73,7 @@ def reminder_fixture(s):
     s['sessions']=[{'id':'synthetic-recovery','date':date_of(now-86400000),'at':now-86400000,'mode':'strength','minutes':8,'planned':14,'effort':6,'talk':True,'pain':False,'status':'partial','reason':{'fa':'داده آزمون ساختگی','en':'Synthetic acceptance fixture'}}]
     return target
 reminder_target=[]
-snapshot(lambda s:reminder_target.append(reminder_fixture(s)));launch();assert has('Record recovery')
+snapshot(lambda s:reminder_target.append(reminder_fixture(s)));launch();assert wait_has('Record recovery')
 current_date=date_of(device_now());time.sleep(2)
 assert sum(current_date+'-followup' in key for key in schedules())==1
 adb('shell','input','keyevent','3');adb('shell','cmd','alarm','set-time',str(reminder_target[0]-5000));time.sleep(10)
@@ -103,7 +103,7 @@ def start_fixture(s):
     s['coach']['ready']={'date':date_of(device_now()),'answers':{'symptoms':'no','pain':'no','sleep':'ok','energy':'good','minutes':'30','place':'inside','support':'none'}}
     start_target.append(target)
 snapshot(start_fixture);launch();adb('shell','input','keyevent','3');adb('shell','cmd','alarm','set-time',str(start_target[0]-5000));time.sleep(10)
-notification_action('Start');assert has('Warm-up');pause_timer();shot('25-notification-start')
+notification_action('Start');assert wait_has('Warm-up');pause_timer();shot('25-notification-start')
 assert any(date_of(device_now())+'-partial' in key for key in schedules())
 click('Finish early and record');answers(['Moderate — 5 out of 10','Yes','No','None']);time.sleep(3)
 assert not any(date_of(device_now()) in key for key in schedules()),'Saved session left reminders scheduled today'

@@ -58,6 +58,13 @@ def click(label,scroll=True,before=None):
     shot('missing-'+re.sub(r'[^a-zA-Z0-9]','_',label))
     raise AssertionError('Missing control: '+label)
 def has(text):return any(text.casefold() in n.attrib.get('text','').casefold() or text.casefold() in n.attrib.get('content-desc','').casefold() for n in tree().iter('node'))
+def wait_has(text):
+    deadline=time.monotonic()+8
+    while time.monotonic()<deadline:
+        if has(text):return True
+        time.sleep(.4)
+    return False
+
 def seek(text):
     for _ in search_steps():
         if has(text):return True
@@ -91,6 +98,20 @@ def audio_peak(name):
 # UIAutomator helper disables idle waiting so live countdowns cannot return stale trees.
 for pattern in ['**/acceptance-debug.apk','**/acceptance-debug-androidTest.apk']:
     paths=glob.glob(pattern,recursive=True);assert paths,pattern;adb('install','-r',paths[0])
+if os.environ.get('FITYAR_EXTENDED_ONLY')=='1':
+    assert adb('shell','getprop','ro.kernel.qemu').strip()=='1','Emulator-only acceptance'
+    adb('install','-r','fityar.apk');launch();click('EN');click('Get started')
+    answers(['Yes','No','Knee push-up','6–10','Squat without a chair','Yes, getting down and up is comfortable','20 minutes or more','No or unsure'])
+    assert 'versionCode=3' in adb('shell','dumpsys','package',APP)
+    adb('shell','pm','grant',APP,'android.permission.POST_NOTIFICATIONS')
+    adb('shell','appops','set',APP,'SCHEDULE_EXACT_ALARM','allow')
+    click('Settings');click('Add home screen widget');time.sleep(2);shot('14-widget-pin')
+    if has('Add automatically'):click('Add automatically')
+    elif has('Add to home screen'):click('Add to home screen')
+    elif has('Add widget'):click('Add widget')
+    adb('shell','input','keyevent','3');time.sleep(2);shot('15-widget-home')
+    exec(compile(open('tests/android-extended.py',encoding='utf-8-sig').read(),'tests/android-extended.py','exec'))
+    sys.exit(0)
 urllib.request.urlretrieve('https://github.com/MohammadAmirHekmati/fityar/releases/download/v1.1.0-preview.12/fityar.apk','previous.apk')
 adb('shell','settings','put','system','sound_effects_enabled','0')
 adb('shell','settings','put','system','lockscreen_sounds_enabled','0')
