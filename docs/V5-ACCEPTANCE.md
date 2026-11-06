@@ -20,6 +20,13 @@ Technique references: [NASM dead bug](https://www.nasm.org/resource-center/exerc
 
 ## Validation / بررسی
 
-Local: 61 tests, typecheck and lint. Native acceptance pending: reproduce old intermediate confirmation, same-key upgrade retaining pending session, injected SQLite write failure and retry, rapid double tap, reopen and exact record count, natural timer end, Persian skip/manual finish, independent core ability, suitable substitution and labeled manual entry. Synthetic emulator fixtures only; no real health records or production testing hooks. Previously successful unrelated audio/widget scenarios are not rerun.
+Local: 61 tests, typecheck and lint. Native acceptance passed on API 35 x86_64: reproduce old intermediate confirmation, same-key upgrade retaining pending session, injected SQLite write failure and retry, rapid double tap, reopen and exact record count, natural timer end, Persian skip/manual finish, independent core ability, suitable substitution and labeled manual entry. Synthetic emulator fixtures only; no real health records or production testing hooks. Previously successful unrelated audio/widget scenarios are not rerun.
 
-محلی: ۶۱ تست، typecheck و lint. پذیرش اندروید در انتظار اجرا: بازتولید تأیید میانی قبلی، ارتقای هم‌امضا و حفظ جلسه معلق، خطای SQLite و تلاش مجدد، لمس تکراری، بازگشایی و شمارش دقیق، پایان طبیعی، پایان دستی/رد مرحله فارسی، توان مستقل، جایگزین و ثبت دستی مشخص. فقط داده ساختگی شبیه‌ساز استفاده می‌شود؛ سناریوهای نامرتبط موفق قبلی تکرار نمی‌شوند.
+محلی: ۶۱ تست، typecheck و lint. پذیرش اندروید API 35 روی x86_64 موفق شد: بازتولید تأیید میانی قبلی، ارتقای هم‌امضا و حفظ جلسه معلق، خطای SQLite و تلاش مجدد، لمس تکراری، بازگشایی و شمارش دقیق، پایان طبیعی، پایان دستی/رد مرحله فارسی، توان مستقل، جایگزین و ثبت دستی مشخص. فقط داده ساختگی شبیه‌ساز استفاده می‌شود؛ سناریوهای نامرتبط موفق قبلی تکرار نمی‌شوند.
+
+
+Verified / تأییدشده: [build 20](https://github.com/MohammadAmirHekmati/fityar/actions/runs/42284545298), source `c58d0c10016ab0a28d1baec03511eb36bcbc7cf7`, app 1.4.0 / versionCode 5. APK SHA-256: `cb9206bfb24e1854ed431ab2d3fd94bab760b4100da5028ffe64da7c44517a22`.
+
+Build 19 caught a real visibility issue: a failed write retained the pending workout, but its notice was above the viewport. Build 20 uses a modal error, passed the injected-failure retry and all focused scenarios. The same APK upgraded public v1.3.0-preview.18 without uninstalling and retained the pending workout ID and profile. Tests use synthetic emulator records and a near-end timer fixture; they do not validate real-world exercise form, clinical effectiveness or the user’s handset.
+
+ساخت ۱۹ ایراد واقعی نمایش خطا را آشکار کرد: داده معلق حفظ می‌شد، اما پیام بیرون دید بود. ساخت ۲۰ هشدار واضح دارد و خطای عمدی، تلاش مجدد و همه مسیرهای هدفمند را گذراند. همان بسته بدون حذف نسخه عمومی قبلی نصب شد و شناسه جلسه معلق و پروفایل حفظ شدند. آزمون‌ها داده ساختگی و تایمر نزدیک پایان دارند؛ فرم واقعی حرکت، اثربخشی بالینی یا گوشی کاربر آزموده نشده است.

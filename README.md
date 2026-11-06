@@ -1,13 +1,13 @@
 # FitYar / فیت‌یار
 
-Planner v4: [reviewed examples and regression evidence](docs/V4-ACCEPTANCE.md).
-نسخه چهارم برنامه‌ساز: [نمونه‌های بازبینی‌شده و شواهد رگرسیون](docs/V4-ACCEPTANCE.md).
+Workout completion and training v5: [reviewed examples and regression evidence](docs/V5-ACCEPTANCE.md).
+ثبت جلسه و تمرین نسخه پنجم: [نمونه‌های بازبینی‌شده و شواهد رگرسیون](docs/V5-ACCEPTANCE.md).
 
 An independent, offline Android fitness and food companion in Persian and English. No AI, account, analytics, or backend. Health records remain in local SQLite; exports occur only on request.
 
 همراه مستقل و آفلاین اندروید برای تمرین و انتخاب غذا، به فارسی و انگلیسی. بدون هوش مصنوعی، حساب، تحلیل‌گر یا سرور. اطلاعات سلامت در SQLite محلی است و خروجی تنها با درخواست کاربر انجام می‌شود.
 
-[Download signed 1.3 preview APK / دانلود APK امضاشده ۱٫۳](https://github.com/MohammadAmirHekmati/fityar/releases/download/v1.3.0-preview.18/fityar.apk) · [Validation / اعتبارسنجی](docs/V4-ACCEPTANCE.md)
+[Download signed 1.4 preview APK / دانلود APK امضاشده ۱٫۴](https://github.com/MohammadAmirHekmati/fityar/releases/download/v1.4.0-preview.20/fityar.apk) · [Validation / اعتبارسنجی](docs/V5-ACCEPTANCE.md)
 
 ## Features / قابلیت‌ها
 

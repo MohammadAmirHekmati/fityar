@@ -9,3 +9,6 @@ English: Workout completion now uses a stable ID, persisted pending feedback, on
 English: Muscle targets and chest/core focus are visible within balanced templates. Added dead bug and knee/full front/side planks, independent ability checks, instructions, precise doses and suitable substitutions. Legs, back, aerobic work and recovery remain; no spot-fat-loss promises.
 
 [Evidence, sources and validation / شواهد، منابع و بررسی](https://github.com/MohammadAmirHekmati/fityar/blob/main/docs/V5-ACCEPTANCE.md)
+
+Verified: 61 tests, typecheck, lint and signed Android upgrade/completion acceptance.
+تأییدشده: ۶۱ تست، typecheck و lint و پذیرش ارتقا و ثبت جلسه روی اندروید با همان امضا.
