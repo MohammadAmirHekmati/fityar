@@ -1,3 +1,4 @@
+import ReminderSettings from './ReminderSettings';
 import FoodGuide from "./FoodGuide";
 import Coach from "./GuidedCoach";
 import Illustration from "./Illustration";
@@ -15,7 +16,6 @@ import {
   Text,
   TextInput,
   View,
-  Vibration,
 } from "react-native";
 import Svg, { Polyline } from "react-native-svg";
 import * as DocumentPicker from "expo-document-picker";
@@ -41,7 +41,9 @@ import {
   Session,
 } from "./core";
 import { initial, load, save, State, validate } from "./storage";
-import { permission, syncNotifications, testNotification, requestExactAlarmPermissionsAsync } from "./reminders";
+import { syncNotifications,listenResponses,clearResponse } from "./reminders";
+import {reminderAction} from './reminderPlan';
+import {syncWidget,syncAudio} from './widget';
 
 export default function App(){return <SafeAreaProvider><Main/></SafeAreaProvider>;}
 function Main() {
@@ -109,15 +111,31 @@ function Main() {
     }
   }, [s]);
   useEffect(() => {
+    syncWidget(s);
+    syncAudio(s);
     syncNotifications(s).catch(() =>
       setNotice(
         s.lang === "fa" ? "اعلان تنظیم نشد؛ مجوز و باتری را بررسی کن." : "Notifications could not be set; check permission and battery settings.",
       ),
     );
   }, [s]);
+  useEffect(()=>{
+    const open=()=>setPage('today');
+    const link=Linking.addEventListener('url',e=>{if(e.url.startsWith('fityar://today'))open();});
+    Linking.getInitialURL().then(url=>{if(url?.startsWith('fityar://today'))open();});
+    const stop=listenResponses(response=>{
+      const request=response.notification.request;
+      const action=response.actionIdentifier==='snooze'?'snooze':response.actionIdentifier==='skip'?'skip':'start';
+      const date=String(request.content.data?.date??dayKey());
+      const id=`${request.identifier}-${response.notification.date}-${action}`;
+      setS(old=>reminderAction(old,action,id,date));
+      open();clearResponse().catch(()=>{});
+    });
+    return()=>{link.remove();stop();};
+  },[]);
   useEffect(() => {
     const id = setInterval(() => setTick(Date.now()), 1000);
-    const sub = AppState.addEventListener("change", (state) => {setTick(Date.now());if(state==='active')syncNotifications(latestState.current).catch(()=>{});});
+    const sub = AppState.addEventListener("change", (state) => {setTick(Date.now());if(state==='active'){syncWidget(latestState.current);syncAudio(latestState.current);syncNotifications(latestState.current).catch(()=>{});}});
     return () => {
       clearInterval(id);
       sub.remove();
@@ -136,9 +154,6 @@ function Main() {
   useEffect(()=>{resetScroll();},[stepIndex,resetScroll]);
   const step = active?.steps[stepIndex],
     remaining = Math.max(0, cumulative - seconds);
-  useEffect(() => {
-    if (active && !active.paused) Vibration.vibrate(180);
-  }, [stepIndex, active]);
   const txt = (value: string, size = 15, muted = false) => (
     <Text
       style={{
@@ -1185,132 +1200,7 @@ function Main() {
                     ))}
                   </>,
                 )}
-                {card(
-                  t("یادآورها", "Reminders"),
-                  <>
-                    {toggle(
-                      t(
-                        "فعال (حداکثر ۳ یادآور روزانه)",
-                        "Enabled (maximum 3 daily reminders)",
-                      ),
-                      s.reminders.enabled,
-                      async (v) => {
-                        if (v && !(await permission())) {
-                          setNotice(
-                            t(
-                              "مجوز اعلان داده نشد.",
-                              "Notification permission not granted.",
-                            ),
-                          );
-                          return;
-                        }
-                        update({ reminders: { ...s.reminders, enabled: v } });
-                      },
-                    )}
-                    {field(
-                      t("ساعت تمرین (۰ تا ۲۳)", "Workout hour (0–23)"),
-                      String(s.reminders.hour),
-                      (v) =>
-                        update({
-                          reminders: {
-                            ...s.reminders,
-                            hour: Math.min(23, Math.max(0, Number(v) || 0)),
-                          },
-                        }),
-                      true,
-                    )}
-                    {field(
-                      t("دقیقه", "Minute"),
-                      String(s.reminders.minute),
-                      (v) =>
-                        update({
-                          reminders: {
-                            ...s.reminders,
-                            minute: Math.min(59, Math.max(0, Number(v) || 0)),
-                          },
-                        }),
-                      true,
-                    )}
-                    {field(
-                      t("شروع سکوت (ساعت)", "Quiet hours start"),
-                      String(s.reminders.quietStart),
-                      (v) =>
-                        update({
-                          reminders: {
-                            ...s.reminders,
-                            quietStart: Math.min(
-                              23,
-                              Math.max(0, Number(v) || 0),
-                            ),
-                          },
-                        }),
-                      true,
-                    )}
-                    {field(
-                      t("پایان سکوت (ساعت)", "Quiet hours end"),
-                      String(s.reminders.quietEnd),
-                      (v) =>
-                        update({
-                          reminders: {
-                            ...s.reminders,
-                            quietEnd: Math.min(23, Math.max(0, Number(v) || 0)),
-                          },
-                        }),
-                      true,
-                    )}
-                    {toggle(
-                      t("حرکت ظهر", "Desk break at noon"),
-                      s.reminders.move,
-                      (v) => update({ reminders: { ...s.reminders, move: v } }),
-                    )}
-                    {toggle(
-                      t(
-                        "آب ساعت ۱۵، بدون هدف اجباری",
-                        "Water at 15:00, no forced target",
-                      ),
-                      s.reminders.water,
-                      (v) =>
-                        update({ reminders: { ...s.reminders, water: v } }),
-                    )}
-                    {button(
-                      t(
-                        "آزمون اعلان ۵ ثانیه",
-                        "Test notification in 5 seconds",
-                      ),
-                      async () => {
-                        if (await permission()) await testNotification(s.lang);
-                      },
-                      true,
-                    )}
-                    {txt(t('برای زمان‌بندی دقیق اعلانِ بخش‌های تمرین، اجازه جداگانه Android لازم است؛ بدون آن ممکن است اعلان دیر برسد.','Precise workout interval alerts need separate Android permission; without it, delivery may be delayed.'),13,true)}
-                    {button(t('اجازه زمان‌بندی دقیق (اختیاری)','Allow precise timing (optional)'),async()=>{try{const result=await requestExactAlarmPermissionsAsync();setNotice(result.granted?t('زمان‌بندی دقیق مجاز شد.','Precise timing allowed.'):t('اعلان‌ها با زمان تقریبی ادامه دارند.','Notifications continue with approximate timing.'));await syncNotifications(s);}catch{setNotice(t('تنظیمات اجازه زمان‌بندی در این دستگاه در دسترس نیست.','Timing permission settings are unavailable on this device.'));}},true)}
-                    {button(
-                      t("تعویق ۱۵ دقیقه", "Snooze 15 minutes"),
-                      async () => {
-                        if (await permission()) {
-                          const result=await testNotification(s.lang, 900,s.reminders);
-                          setNotice(result===false?t('این زمان داخل ساعات سکوت است.','That time falls within quiet hours.'):t('یادآور برای ۱۵ دقیقه بعد تنظیم شد.','Reminder set for 15 minutes from now.'));
-                        }
-                      },
-                      true,
-                    )}
-                    {button(
-                      t("تنظیمات سیستم", "System settings"),
-                      () => {
-                        Linking.openSettings();
-                      },
-                      true,
-                    )}
-                    {txt(
-                      t(
-                        "اعلان‌ها برای ۷ روز آینده‌اند و با بازکردن اپ تازه می‌شوند. محدودیت باتری و توقف اجباری ممکن است مانع اعلان شود. تایمر از زمان ذخیره‌شده بازیابی می‌شود.",
-                        "Reminders cover 7 days and refresh on opening. Battery restrictions and force-stop may prevent delivery. The timer restores from saved timestamps.",
-                      ),
-                      13,
-                      true,
-                    )}
-                  </>,
-                )}
+                <ReminderSettings s={s} update={update}/>
                 {card(
                   t("داده‌های تو", "Your data"),
                   <>

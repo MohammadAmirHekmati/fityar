@@ -1,10 +1,11 @@
 """V1 -> V2 upgrade and guided acceptance, synthetic data only."""
-import os,re,subprocess,time,xml.etree.ElementTree as ET,urllib.request
+import os,re,subprocess,time,xml.etree.ElementTree as ET,urllib.request,glob
 APP='com.mohammadamirhekmati.fityar'
 os.makedirs('screenshots',exist_ok=True)
 def adb(*args): return subprocess.check_output(['adb',*args],text=True,timeout=35)
 def tree():
-    adb('shell','uiautomator','dump','/sdcard/window.xml')
+    result=adb('shell','am','instrument','-w','-e','class','fityar.test.Dump','fityar.acceptance.test/androidx.test.runner.AndroidJUnitRunner')
+    assert 'FAILURES' not in result,result
     return ET.fromstring(adb('shell','cat','/sdcard/window.xml'))
 def center(n):
     a=list(map(int,re.findall(r'\d+',n.attrib['bounds'])))
@@ -26,7 +27,7 @@ def visible(node,root,label):
 def click(label,scroll=True):
     for _ in range(12 if scroll else 2):
         root=tree()
-        matches=[n for n in root.iter('node') if (n.attrib.get('text')==label or n.attrib.get('content-desc')==label) and visible(n,root,label)]
+        matches=[n for n in root.iter('node') if (n.attrib.get('text','').removeprefix('✓ ')==label.removeprefix('✓ ') or n.attrib.get('content-desc','').removeprefix('✓ ')==label.removeprefix('✓ ')) and visible(n,root,label)]
         matches.sort(key=lambda n:n.attrib.get('clickable')!='true')
         if matches:
             adb('shell','input','tap',*center(matches[0]));time.sleep(1.2);return
@@ -35,70 +36,72 @@ def click(label,scroll=True):
     raise AssertionError('Missing control: '+label)
 def has(text):return any(text in n.attrib.get('text','') or text in n.attrib.get('content-desc','') for n in tree().iter('node'))
 def pause_timer():
-    # Observed native Pixel 2 bounds: Pause [100,1146][980,1292]. A changing
-    # countdown prevents UIAutomator's idle wait; tap, then assert paused semantics.
-    adb('shell','input','tap','540','1220');time.sleep(1)
-    assert has('Resume') or has('ادامه'),'Pause tap did not pause the timer'
+    click('Pause');assert has('Resume'),'Pause failed'
+
 def launch():adb('shell','monkey','-p',APP,'1');time.sleep(7)
 def enter(label,value):
     for _ in range(12):
         edits=[n for n in tree().iter('node') if n.attrib.get('class')=='android.widget.EditText' and n.attrib.get('content-desc')==label]
         if edits:
-            adb('shell','input','tap',*center(edits[0]));adb('shell','input','text',value);adb('shell','input','keyevent','4');time.sleep(.5);return
+            adb('shell','input','tap',*center(edits[0]));adb('shell','input','keyevent','123');adb('shell','input','keyevent',*(['67']*40));adb('shell','input','text',value);adb('shell','input','keyevent','4');time.sleep(.5);return
         adb('shell','input','swipe','300','1450','300','600','350');time.sleep(.5)
     raise AssertionError('Missing input: '+label)
 def answers(values):
     for v in values:click(v,True)
     click('Confirm and continue',True)
-# Install the actually released v1, populate its own UI, then upgrade without clearing data.
-urllib.request.urlretrieve('https://github.com/MohammadAmirHekmati/fityar/releases/download/v1.0.0-preview.7/fityar.apk','previous.apk')
-adb('install','-r','previous.apk');launch();click('EN')
-enter('Age (18 or older)','30');click('Begin',True)
-click('Progress');enter('Weight (kg)','70');enter('Waist (cm)','90');click('Save measurements',True)
-click('Food');click('Log today',True)
-click('Today');click('Mark today as not done',True);shot('01-v1-data')
-adb('shell','am','force-stop',APP);adb('shell','svc','wifi','disable');adb('shell','svc','data','disable');adb('install','-r','fityar.apk');launch();shot('02-upgraded')
-assert 'versionCode=2' in adb('shell','dumpsys','package',APP),'Wrong versionCode'
-click('Progress');click('Last 7 readings average: 70.0 kg',True);shot('03-retained-measurement');click('Manually marked not done',True);shot('03-retained-history')
-click('Food');click('Browse, favorites and logs');enter('Search food or alias','Rice');click('Today’s food log',True);assert has('Rice · 1'),'V1 food missing';shot('04-retained-food')
-click('Today');click('Get started');click('Yes');click('No');shot('05-question-en')
-# Question cursor persists across force-stop, and back/edit works.
-adb('shell','am','force-stop',APP);launch();assert has('Which push-up'),'Question did not persist'
-click('Back and edit');click('✓ No');click('Knee push-up');click('6–10');click('Squat without a chair');click('Yes, getting down and up is comfortable');click('20 minutes or more');click('No or unsure');click('Confirm and continue',True)
-click('My plan today');answers(['No','No, I feel well','Enough and acceptable','Good','10 minutes','Indoors','None']);shot('06-plan-en')
-assert has('Knee push-up'),'Reported knee push-up not selected'
-click('This does not suit me today',True);answers(['No support available']);assert has('Knee push-up')
-click('Start plan');time.sleep(2);shot('07-warmup-en')
-# A moving timer may prevent UIAutomator idling. Freeze by tapping the visible Pause control if needed.
-pause_timer();shot('08-paused-warmup')
-for _ in range(4):click('Skip this step',True)
-shot('08-strength-stage')
-for _ in range(2):click('Skip this step',True)
-shot('08-knee-work-stage')
-adb('shell','am','force-stop',APP);launch();assert has('Resume'),'Paused session did not persist'
-click('Finish early and record',True);answers(['Moderate — 5 out of 10','Yes','No','None']);shot('09-result-en')
-assert has('Today’s session is saved'),'Result not saved'
-click('My plan today');answers(['No','No, I feel well','Enough and acceptable','Good','10 minutes','Indoors','None'])
-click('Update recovery',True);answers(['Pain or substantial fatigue']);shot('09-recovery-answer')
-click('My plan today');answers(['No','No, I feel well','Enough and acceptable','Good','10 minutes','Indoors','None']);assert has('Previous pain or poor recovery is unresolved'),'Poor recovery did not block exercise';shot('09-recovery-block')
-click('Update recovery',True);answers(['Comfortable and recovered'])
-# Persian full check -> plan -> guided session -> result, with same retained profile.
-click('فا');click('برنامه امروز من');
-for label in ['نه','نه، حالم خوب است','کافی و قابل قبول','معمولی','۵ دقیقه','داخل خانه','هیچ‌کدام']:click(label,True)
-shot('10-questions-fa');click('تأیید و ادامه',True);shot('11-plan-fa');click('شروع برنامه');shot('12-before-pause-fa');pause_timer();shot('12-session-fa');click('پایان زودتر و ثبت نتیجه',True)
-for label in ['راحت — ۳ از ۱۰','بله','نه','هیچ‌کدام']:click(label,True)
-click('تأیید و ادامه',True);shot('13-result-fa')
-click('EN');click('Library');click('Knee push-up',True);shot('14-knee-teaching')
-click('Settings');adb('shell','pm','grant',APP,'android.permission.POST_NOTIFICATIONS');adb('shell','appops','set',APP,'SCHEDULE_EXACT_ALARM','allow');click('Test notification in 5 seconds',True);adb('shell','input','keyevent','3')
-for _ in range(12):
-    time.sleep(5);dump=adb('shell','dumpsys','notification','--noredact')
-    if 'Movement reminder; check how you feel.' in dump:break
-assert 'Movement reminder; check how you feel.' in dump,'Background test notification missing'
-adb('shell','cmd','statusbar','expand-notifications');shot('15-notification');adb('shell','input','keyevent','4');launch()
-# Compact viewport and large text: exercise navigation and capture real native screens.
-adb('shell','settings','put','system','font_scale','1.3');adb('shell','wm','size','960x1600');adb('shell','am','force-stop',APP);launch();click('Library');shot('16-compact-large-font');click('Settings');click('Today');shot('17-compact-today');click('فا');shot('18-compact-persian')
+# UIAutomator helper disables idle waiting so live countdowns cannot return stale trees.
+for pattern in ['**/acceptance-debug.apk','**/acceptance-debug-androidTest.apk']:
+    paths=glob.glob(pattern,recursive=True);assert paths,pattern;adb('install','-r',paths[0])
+urllib.request.urlretrieve('https://github.com/MohammadAmirHekmati/fityar/releases/download/v1.1.0-preview.12/fityar.apk','previous.apk')
+adb('install','-r','previous.apk');launch();click('EN');click('Get started')
+answers(['Yes','No','Knee push-up','6–10','Squat without a chair','Yes, getting down and up is comfortable','20 minutes or more','No or unsure'])
+click('Progress');enter('Weight (kg)','70');enter('Waist (cm)','90');click('Save measurements')
+click('Settings');click('Activity and habit logs');click('Mark today as not done')
+click('Today');click('My plan today');answers(['No','No, I feel well','Enough and acceptable','Good','20 minutes','Indoors','None']);shot('01-v2-ready')
+adb('shell','am','force-stop',APP);adb('shell','svc','wifi','disable');adb('shell','svc','data','disable');adb('install','-r','fityar.apk');launch()
+assert 'versionCode=3' in adb('shell','dumpsys','package',APP)
+assert has('Knee push-up'),'Guided profile or ready plan lost on upgrade';shot('02-upgraded-plan')
+click('Progress');click('Last 7 readings average: 70.0 kg');click('Manually marked not done');shot('03-retained-data')
+click('Today');click('Edit ability and restrictions');click('Exit check');assert has('Today’s main work'),'Unchanged reassessment did not exit'
+click('Edit ability and restrictions');click('No');click('Exit check');click('Discard changes');assert has('Knee push-up'),'Discard changed prior profile'
+click('Edit ability and restrictions');click('No');click('Exit check');click('Save for later');assert has('Knee push-up');click('Resume saved draft');click('Exit check');click('Discard changes');shot('04-cancel-preserves-plan')
+click('Edit today’s answers')
+for label in ['No','No, I feel well','Enough and acceptable','Good']:click(label)
+shot('05-duration-options');enter('Custom minutes','121');click('Use custom time');assert has('Enter a whole number');click('OK')
+enter('Custom minutes','37');click('Use custom time');click('Both indoors and outside');click('None');click('Confirm and continue');shot('06-custom-both-preview')
+assert has('Knee push-up');assert has('Today’s main work')
+click('Test workout sound');time.sleep(2)
+click('Start plan');time.sleep(2);shot('07-active-warmup');pause_timer();shot('08-paused')
+for _ in range(4):click('Skip this step')
+assert has('Free squat'),'Warmup skip unexpectedly ended the whole session';shot('09-main-work')
+click('Resume');time.sleep(2);adb('shell','input','keyevent','3');time.sleep(3)
+assert 'WorkoutAudioService' in adb('shell','dumpsys','activity','services',APP),'Native audio service not running in background'
+shot('10-background');launch();pause_timer()
+for _ in range(2):click('Skip this step')
+assert has('Knee push-up');shot('11-push-set')
+adb('shell','am','force-stop',APP);launch();assert has('Resume'),'Paused session lost'
+click('Finish early and record');answers(['Moderate — 5 out of 10','Yes','No','None']);assert has('Today’s session is saved');shot('12-saved-partial')
+click('Settings');adb('shell','pm','grant',APP,'android.permission.POST_NOTIFICATIONS');adb('shell','appops','set',APP,'SCHEDULE_EXACT_ALARM','allow')
+# Make the quiet interval empty for the explicit delivery test, independent of runner timezone.
+enter('Quiet hours start (0–23)','8');enter('Quiet hours end (0–23)','8')
+click('Test notification in 5 seconds');adb('shell','input','keyevent','3');time.sleep(8)
+assert 'Movement reminder; check how you feel.' in adb('shell','dumpsys','notification','--noredact'),'Test notification missing'
+adb('shell','cmd','statusbar','expand-notifications');time.sleep(2);shot('13-notification');adb('shell','input','keyevent','4');launch()
+click('Settings');click('Add home screen widget');time.sleep(2);shot('14-widget-pin')
+# Launcher confirmation differs by Android launcher, use visible wording only.
+if has('Add to home screen'):click('Add to home screen')
+elif has('ADD AUTOMATICALLY'):click('ADD AUTOMATICALLY')
+elif has('Add automatically'):click('Add automatically')
+adb('shell','input','keyevent','3');time.sleep(2);shot('15-widget-home')
+assert 'FitYarWidget' in adb('shell','dumpsys','appwidget'),'Widget provider not registered'
+adb('shell','am','start','-W','-a','android.intent.action.VIEW','-d','fityar://today',APP);time.sleep(3);assert has('My plan today'),'Widget deep link failed'
+click('فا');click('برنامه امروز من')
+for label in ['نه','نه، حالم خوب است','کافی و قابل قبول','معمولی','۳۰ دقیقه','هر دو؛ خانه و بیرون','هیچ‌کدام']:click(label)
+click('تأیید و ادامه');shot('16-persian-plan')
+adb('shell','settings','put','system','font_scale','1.3');adb('shell','wm','size','960x1600');adb('shell','am','force-stop',APP);launch();shot('17-compact-persian');click('EN');shot('18-compact-english')
 adb('shell','settings','put','system','font_scale','1.0');adb('shell','wm','size','reset')
-logs=adb('logcat','-d','-s','AndroidRuntime:E','ReactNativeJS:E')
+logs=adb('logcat','-d','-s','AndroidRuntime:E','ReactNativeJS:E','FitYarAudio:I')
 with open('screenshots/runtime.txt','w') as f:f.write(logs)
 assert 'FATAL EXCEPTION' not in logs and 'TypeError' not in logs,logs
-print('Upgrade, guided fa/en, persistence and notification passed / ارتقا و مسیر مرحله‌ای موفق')
+assert 'boundary' in logs,'No native audio boundary executed'
+print('V2 upgrade, transactional drafts, custom time, both access, workout, native audio service, notifications and widget registration passed / پذیرش نسخه سوم')

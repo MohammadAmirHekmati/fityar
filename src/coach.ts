@@ -2,8 +2,8 @@ import {bi, dayKey, elapsed} from './core.ts';
 import type {Session, Step, Decision, Text, Active} from './core';
 export type Answers=Record<string,string>;
 export type FlowKind='intake'|'daily'|'post'|'recovery'|'adapt';
-export interface Flow {kind:FlowKind;cursor:number;answers:Answers;target?:string;date:string}
-export interface CoachState {profile:Answers;flow?:Flow;ready?:{date:string;answers:Answers};feedback?:Record<string,{effort:number;pain:boolean;at:number}[]>}
+export interface Flow {kind:FlowKind;cursor:number;answers:Answers;baseline?:Answers;target?:string;date:string}
+export interface CoachState {profile:Answers;flow?:Flow;draft?:Flow;ready?:{date:string;answers:Answers};feedback?:Record<string,{effort:number;pain:boolean;at:number}[]>}
 export interface Question {key:string;title:Text;hint?:Text;options:{id:string;label:Text}[]}
 const q=(key:string,fa:string,en:string,options:[string,string,string][],hint?:Text):Question=>({key,title:bi(fa,en),options:options.map(([id,f,e])=>({id,label:bi(f,e)})),hint});
 export const questions:Record<FlowKind,Question[]>={
@@ -21,30 +21,35 @@ export const questions:Record<FlowKind,Question[]>={
  q('pain','امروز درد یا بیماری داری؟','Do you have pain or feel ill today?',[['no','نه، حالم خوب است','No, I feel well'],['yes','بله یا مطمئن نیستم','Yes or unsure']]),
  q('sleep','خواب دیشبت چطور بود؟','How was your sleep last night?',[['low','کمتر از ۵ ساعت یا نامناسب','Under 5 hours or poor'],['ok','کافی و قابل قبول','Enough and acceptable']]),
  q('energy','الان چقدر انرژی داری؟','How is your energy now?',[['low','کم','Low'],['ok','معمولی','Okay'],['good','خوب','Good']]),
- q('minutes','امروز چقدر وقت داری؟','How much time do you have today?',[['5','۵ دقیقه','5 minutes'],['10','۱۰ دقیقه','10 minutes'],['15','۱۵ دقیقه','15 minutes'],['20','۲۰ دقیقه','20 minutes']]),
- q('place','کجا می‌خواهی حرکت کنی؟','Where can you move today?',[['inside','داخل خانه','Indoors'],['outside','بیرون، مسیر امن','Outside, on a safe route']]),
+ q('minutes','امروز چقدر وقت داری؟','How much time do you have today?',[['5','۵ دقیقه','5 minutes'],['10','۱۰ دقیقه','10 minutes'],['20','۲۰ دقیقه','20 minutes'],['30','۳۰ دقیقه','30 minutes'],['45','۴۵ دقیقه','45 minutes'],['60','۶۰ دقیقه','60 minutes']],bi('این سقف زمان است؛ وقت بیشتر تمرین را به‌زور طولانی‌تر نمی‌کند. مقدار دلخواه: ۵ تا ۱۲۰ دقیقه.','This is a time ceiling; extra free time does not force extra training. Custom: 5–120 minutes.')),
+ q('place','برای تمرین به کجا دسترسی داری؟','Where can you exercise?',[['inside','داخل خانه','Indoors'],['outside','بیرون، مسیر امن','Outside, on a safe route'],['both','هر دو؛ خانه و بیرون','Both indoors and outside']]),
  q('support','چه تکیه‌گاهی در دسترس است؟','What stable support is available?',[['none','هیچ‌کدام','None'],['wall','دیوار','Wall'],['chair','دیوار و صندلی ثابت','Wall and stable chair'],['counter','دیوار و سطح بلند ثابت','Wall and fixed raised surface']],bi('صندلی چرخ‌دار، میز لق و وسایل لغزنده مناسب نیستند.','Do not use wheeled chairs, unstable tables or slippery supports.'))],
  post:[q('effort','این جلسه چقدر سخت بود؟','How hard was this session?',[['3','راحت — ۳ از ۱۰','Easy — 3 out of 10'],['5','متوسط — ۵ از ۱۰','Moderate — 5 out of 10'],['8','سخت — ۸ از ۱۰','Hard — 8 out of 10']]),q('talk','می‌توانستی یک جمله کامل بگویی؟','Could you speak a full sentence?',[['yes','بله','Yes'],['no','نه','No']]),q('pain','در طول جلسه درد داشتی؟','Did you have pain during the session?',[['no','نه','No'],['yes','بله','Yes']]),q('group','کدام بخش بیشتر نیاز به سبک‌تر شدن دارد؟','Which part needs to be easier next time?',[['none','هیچ‌کدام','None'],['push','دست و سینه','Arms and chest'],['legs','پا','Legs'],['core','میان‌تنه','Core'],['cardio','راه رفتن یا هوازی','Walking or cardio']])],
  recovery:[q('recovery','بعد از جلسه قبل چطور هستی؟','How do you feel after your last session?',[['2','راحت و سرحال','Comfortable and recovered'],['5','کمی کوفتگی یا خستگی','Some soreness or fatigue'],['8','درد یا خستگی زیاد','Pain or substantial fatigue']])],
  adapt:[q('reason','چه چیزی امروز مناسب نیست؟','What does not suit you today?',[['pain','درد یا ناخوشی','Pain or illness'],['time','وقت کمتر دارم','Less time'],['equipment','تکیه‌گاه ندارم','No support available'],['unfamiliar','حرکت‌ها را نمی‌شناسم','Unfamiliar movements']])]
 };
 export const newFlow=(kind:FlowKind,target?:string):Flow=>({kind,cursor:0,answers:{},date:dayKey(),...(target?{target}:{})});
+export const validAnswer=(q:Question,value:string)=>q.key==='minutes'?/^\d+$/.test(value)&&Number(value)>=5&&Number(value)<=120:q.options.some(o=>o.id===value);
+export const flowChanged=(f:Flow)=>JSON.stringify(Object.entries(f.answers).sort())!==JSON.stringify(Object.entries(f.baseline??{}).sort());
+export function leaveFlow(c:CoachState,saveDraft=false):CoachState{return {...c,flow:undefined,draft:saveDraft?c.flow:undefined};}
 export function answerFlow(flow:Flow,value:string):Flow {
  const list=questions[flow.kind],question=list[flow.cursor];
- if(!question?.options.some(o=>o.id===value))throw Error('Invalid answer');
+ if(!question||!validAnswer(question,value))throw Error('Invalid answer');
  const answers=Object.fromEntries(list.slice(0,flow.cursor).filter(x=>flow.answers[x.key]!==undefined).map(x=>[x.key,flow.answers[x.key]]));
  answers[question.key]=value;
  return {...flow,answers,cursor:flow.cursor+1};
 }
-export function completeAnswers(kind:FlowKind,a:Answers){return questions[kind].every(q=>q.options.some(o=>o.id===a[q.key]));}
+export function completeAnswers(kind:FlowKind,a:Answers){return questions[kind].every(q=>validAnswer(q,a[q.key]));}
 export function validateCoach(c:unknown):boolean {
  if(!c||typeof c!=='object')return false;
  const x=c as CoachState,answers=(a:unknown)=>!!a&&typeof a==='object'&&!Array.isArray(a)&&Object.entries(a).length<=30&&Object.values(a).every(v=>typeof v==='string'&&v.length<100);
  if(!answers(x.profile))return false;
- const validAnswers=(kind:FlowKind,a:Answers)=>Object.entries(a).every(([key,value])=>questions[kind].some(q=>q.key===key&&q.options.some(o=>o.id===value)));
+ const validAnswers=(kind:FlowKind,a:Answers)=>Object.entries(a).every(([key,value])=>questions[kind].some(q=>q.key===key&&validAnswer(q,value)));
  if(!validAnswers('intake',x.profile))return false;
  if(x.flow){const f=x.flow;if(!questions[f.kind]||!Number.isInteger(f.cursor)||f.cursor<0||f.cursor>questions[f.kind].length||!answers(f.answers)||typeof f.date!=='string'||(f.target!==undefined&&typeof f.target!=='string'))return false;}
  if(x.flow&&(!validAnswers(x.flow.kind,x.flow.answers)||questions[x.flow.kind].slice(0,x.flow.cursor).some(q=>x.flow!.answers[q.key]===undefined)))return false;
+ if(x.flow?.baseline&&(!answers(x.flow.baseline)||!validAnswers(x.flow.kind,x.flow.baseline)))return false;
+ if(x.draft&&!validateCoach({...x,flow:x.draft,draft:undefined}))return false;
  if(x.ready&&(!answers(x.ready.answers)||typeof x.ready.date!=='string'||!completeAnswers('daily',x.ready.answers)))return false;
  if(x.feedback&&Object.entries(x.feedback).some(([key,rows])=>!['push','legs','core','cardio'].includes(key)||!Array.isArray(rows)||rows.length>10000||rows.some(r=>!Number.isFinite(r.at)||!Number.isFinite(r.effort)||r.effort<1||r.effort>10||typeof r.pain!=='boolean')))return false;
  return true;
@@ -66,6 +71,9 @@ export function choosePlan(profile:Answers,a:Answers,history:Session[],feedback:
  const missingRecovery=last&&last.date!==dayKey(new Date(now))&&last.recovery===undefined;
  if(missingRecovery)return stop(bi('ریکاوری جلسه قبل هنوز مشخص نیست. ابتدا آن را ثبت کن.','Recovery from the previous session is unknown. Record it first.'));
  const recovering=done.some(x=>now-x.at<24*3600000||(now-x.at<48*3600000&&x.mode==='strength')),low=a.sleep==='low'||a.energy==='low'||(last?.recovery??0)>=5||last?.talk===false||(last?.effort??0)>=8||last?.status==='partial';
+ const both=a.place==='both';
+ const recentStrength=done.some(x=>x.mode==='strength'&&now-x.at<7*86400000);
+ if(both)a={...a,place:recentStrength&&last?.mode==='strength'?'outside':'inside'};
  let gentle=low||recovering||a.place==='outside'||profile.legs==='unknown'||a.minutes==='5';
  const hard=(group:string)=>feedback?.[group]?.at(-1)?.effort!>=8;
  const reps:Record<string,number>={};
@@ -76,30 +84,47 @@ export function choosePlan(profile:Answers,a:Answers,history:Session[],feedback:
  let legId=profile.legs==='free'?'squat-free':support==='chair'?'squat-chair':'calf';
  if(hard('legs'))legId=support==='chair'?'squat-chair':'calf';
  const first=!last||now-last.at>10*86400000;
+ const initialLimit=profile.push!=='unknown'&&profile.pushReps!=='unknown'&&profile.legs==='free'&&profile.core==='yes'&&profile.cardio==='20'?14:10;
  const prior=done.find(x=>gentle?['walk','run','home'].includes(x.mode):x.mode==='strength');
  const progressVolume=done.length>=3&&done.slice(0,3).every(x=>x.status==='complete'&&x.effort<=5&&x.talk&&!x.pain&&x.recovery!==undefined&&x.recovery<=3);
- const historyLimit=prior?Math.min(20,Math.max(5,Math.floor(prior.planned)+(progressVolume?1:0))):10;
- const budget=Math.min(Number(a.minutes),first?10:20,historyLimit,low?5:20,gentle?(Number(profile.cardio)||5):20)*60;
+ const historyLimit=prior?Math.max(5,Math.floor(prior.planned)+(progressVolume?1:0)):initialLimit;
+ const budget=Math.min(Number(a.minutes),first?initialLimit:120,historyLimit,low?5:120,gentle&&!prior?(Number(profile.cardio)||5):120)*60;
  if(budget<600)gentle=true;
- const selected=gentle?[a.place==='outside'?'walk':'march','step-touch']: [legId,...(pushId?[pushId]:[]),profile.core==='yes'&&!hard('core')?'bridge':'march'];
+ const selected=gentle?[a.place==='outside'?'walk':'march','step-touch']: [legId,...(pushId?[pushId]:[]),...(profile.core==='yes'&&!hard('core')?['bridge',done.length%2?'heel-slide':'bird-dog']:['calf','march'])];
  const steps:Step[]=[];
  const run=!first&&!low&&!recovering&&profile.run==='yes'&&profile.cardio==='20'&&a.place==='outside'&&budget>=1200&&done.slice(0,3).length===3&&done.slice(0,3).every(x=>x.effort<=5&&!x.pain&&x.recovery===2)&&!hard('cardio');
  const add=(id:string,seconds:number,n?:number,phase:Step['phase']='work')=>{steps.push({title:movements[id].name,exercise:id,seconds,phase,...(n?{reps:n}:{}),note:bi(n?`${n} تکرار آرام؛ بقیه زمان استراحت. نفس را حبس نکن.`:'با سرعت راحت، بدون فشار.',n?`${n} slow repetitions; rest for the remaining time. Keep breathing.`:'Move comfortably, without strain.')});if(n)reps[id]=n;};
- const warm=budget<=300?120:300,cool=run?300:60;
+ const warm=budget<600?Math.min(180,Math.floor(budget*.4)):300,cool=run?300:60;
  if(run)add('walk',warm,undefined,'warmup');
  else if(gentle){add(a.place==='outside'?'walk':'march',warm-30,undefined,'warmup');add('shoulder-roll',30,5,'warmup');}
  else{add('march',180,undefined,'warmup');add('shoulder-roll',60,10,'warmup');add(legId,30,2,'warmup');add(pushId||'march',30,pushId?2:undefined,'warmup');}
  let remaining=budget-warm-cool;
  let i=0;
- while(remaining>=60&&i<20){const id=run?(i%2===0?'jog':'walk'):selected[i%selected.length];const group=movements[id].group;
+ while(remaining>=60){const maintenance=!gentle&&!run&&i>=selected.length*3;
+ if(maintenance&&i>=selected.length*3+(Number(profile.cardio)||5)){remaining=0;break;}
+ const id=maintenance?(i%2?'march':'step-touch'):run?(i%2===0?'jog':'walk'):selected[i%selected.length];const group=movements[id].group;
  const base=group==='push'?Math.max(2,Math.min(6,Number(profile.pushReps)||3)):5;
  const evidence=feedback?.[group]?.slice(-3)??[];
  const progress=evidence.length===3&&evidence.every(x=>!x.pain&&x.effort<=5)&&last?.recovery===2&&!first;
- const n=gentle?undefined:Math.max(2,base+(progress?1:0)-(hard(group)?2:0));
- add(id,run?60:45,n);if(!run)steps.push({title:bi('استراحت','Rest'),seconds:15,phase:'work'});remaining-=60;i++;}
+ const n=gentle||maintenance?undefined:Math.max(2,base+(progress?1:0)-(hard(group)?2:0));
+ add(id,run||gentle||maintenance?60:45,n);if(!run&&!gentle&&!maintenance)steps.push({title:bi('استراحت','Rest'),seconds:15,phase:'work'});remaining-=60;i++;}
  if(remaining>0)steps.push({title:bi('استراحت و تنفس راحت','Rest and breathe comfortably'),seconds:remaining});
  add('cooldown',cool,undefined,'cooldown');
- const reason=low?bi('آمادگی پایین یا جلسه قبلی سخت یا ناتمام بوده؛ امروز فقط حرکت راحت.','Readiness is low, or the previous session was hard or unfinished: comfortable movement today.'):recovering?bi('برای ریکاوری پس از جلسه اخیر، امروز فقط حرکت راحت پیشنهاد می‌شود.','Allow recovery after your recent session; comfortable movement only today.'):first?bi('شروع کنترل‌شده بر اساس توان گزارش‌شده؛ چند تکرار ذخیره نگه دار، بدون آزمون بیشینه.','A controlled start based on your reported ability; keep repetitions in reserve, with no maximum test.'):bi('بر اساس زمان، مکان، توان هر گروه و بازخورد؛ زمان جلسه فقط با سه ثبت راحت و ریکاوری مناسب، حداکثر یک دقیقه بیشتر می‌شود.','Based on time, place, ability and feedback; duration grows by at most one minute after three easy, recovered records.');
+ steps.forEach(s=>{s.location=a.place==='outside'?'outside':'inside';});
+ // A recovered, established indoor session may split its existing budget across locations.
+ // Transition is attached to the next warm-up; transfer time never counts as exercise.
+ if(both&&!gentle&&!first&&progressVolume&&budget>=1800){
+   const split=steps.findIndex((s,i)=>s.phase==='work'&&steps.slice(0,i).reduce((n,x)=>n+x.seconds,0)>=budget/2);
+   if(split>0){
+     const tail=steps.slice(split).reduce((n,x)=>n+x.seconds,0);
+     steps.splice(split,steps.length-split,
+       {title:movements.cooldown.name,exercise:'cooldown',phase:'cooldown',location:'inside',seconds:60},
+       {title:movements.walk.name,exercise:'walk',phase:'warmup',location:'outside',transition:true,seconds:300,note:bi('به مسیر امن برو؛ وقتی آماده‌ای ادامه را بزن.','Move to a safe route; press resume when ready.')},
+       {title:movements.walk.name,exercise:'walk',phase:'work',location:'outside',seconds:tail-420},
+       {title:movements.cooldown.name,exercise:'cooldown',phase:'cooldown',location:'outside',seconds:60});
+   }
+ }
+ const reason=low?bi('آمادگی پایین یا جلسه قبلی سخت یا ناتمام بوده؛ امروز فقط حرکت راحت.','Readiness is low, or the previous session was hard or unfinished: comfortable movement today.'):recovering?bi('برای ریکاوری پس از جلسه اخیر، امروز فقط حرکت راحت پیشنهاد می‌شود.','Allow recovery after your recent session; comfortable movement only today.'):first?bi('شروع کوتاه و کنترل‌شده بر اساس توان گزارش‌شده؛ جلسه ارزیابی نیست. چند تکرار ذخیره نگه دار؛ پس از ثبت نتیجه و ریکاوری، برنامه بعدی تنظیم می‌شود.','A short, controlled start based on reported ability, not an assessment. Keep repetitions in reserve; record your result and recovery to guide the next plan.'):bi('بر اساس زمان، مکان، توان هر گروه و بازخورد؛ زمان جلسه فقط با سه ثبت راحت و ریکاوری مناسب، حداکثر یک دقیقه بیشتر می‌شود.','Based on time, place, ability and feedback; duration grows by at most one minute after three easy, recovered records.');
  return {decision:{state:first?'return':low?'reduce':'hold',mode:run?'run':gentle?(a.place==='outside'?'walk':'home'):'strength',minutes:steps.reduce((n,s)=>n+s.seconds,0)/60,reason},steps,reps};
 }
 export interface Movement {name:Text;group:'push'|'legs'|'core'|'cardio';start:Text;end:Text;avoid:Text}

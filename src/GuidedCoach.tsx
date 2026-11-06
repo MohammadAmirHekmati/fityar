@@ -1,14 +1,16 @@
+import AudioControls from './AudioControls';
 import React,{useEffect,useState} from 'react';
-import {View,Text,Pressable,BackHandler} from 'react-native';
+import {View,Text,Pressable,BackHandler,Alert,TextInput} from 'react-native';
 import type {State} from './model';
-import {actualSeconds,dayKey,elapsed,names} from './core';
-import {answerFlow,choosePlan,completeAnswers,movements,newFlow,questions,performedGroups} from './coach';
+import {actualSeconds,dayKey,elapsed,names,numericText} from './core';
+import {answerFlow,choosePlan,completeAnswers,movements,newFlow,questions,performedGroups,validAnswer,flowChanged,leaveFlow} from './coach';
 import type {CoachState,FlowKind} from './coach';
 import MovementView from './MovementView';
 const emptyCoach:CoachState={profile:{}};
 type Props={s:State;update:(patch:Partial<State>)=>void;library?:boolean;onNavigate?:()=>void};
 export default function Coach({s,update,library=false,onNavigate}:Props){
  const [now,setNow]=useState(()=>Date.now()),[selected,select]=useState(''),[expanded,expand]=useState(false);
+ const [custom,setCustom]=useState('');
  useEffect(()=>{const timer=setInterval(()=>setNow(Date.now()),1000);return()=>clearInterval(timer);},[]);
  useEffect(()=>{onNavigate?.();},[selected,onNavigate]);
  const c:CoachState=s.coach??emptyCoach,f=c.flow,fa=s.lang==='fa',t=(a:string,b:string)=>fa?a:b;
@@ -19,12 +21,13 @@ export default function Coach({s,update,library=false,onNavigate}:Props){
  const patch=(value:Partial<CoachState>)=>update({coach:{...c,...value}});
  const begin=(kind:FlowKind,target?:string)=>patch({flow:newFlow(kind,target)});
  const back=()=>{if(f&&f.cursor>0)patch({flow:{...f,cursor:f.cursor-1}});};
- useEffect(()=>{const listener=BackHandler.addEventListener('hardwareBackPress',()=>{if(f&&f.cursor>0){update({coach:{...c,flow:{...f,cursor:f.cursor-1}}});return true;}return false;});return()=>listener.remove();},[c,f,update]);
+ const exit=()=>{if(!f)return;if(!flowChanged(f)){update({coach:leaveFlow(c)});return;}Alert.alert(t('خروج از بررسی؟','Leave this check?'),t('پاسخ‌های تأییدنشده، برنامه و سابقه قبلی را تغییر نمی‌دهند.','Unconfirmed answers do not change your previous plan or history.'),[{text:t('ادامه بررسی','Continue editing'),style:'cancel'},{text:t('ذخیره برای بعد','Save for later'),onPress:()=>update({coach:leaveFlow(c,true)})},{text:t('کنار گذاشتن تغییرات','Discard changes'),style:'destructive',onPress:()=>update({coach:leaveFlow(c)})}]);};
+ useEffect(()=>{const listener=BackHandler.addEventListener('hardwareBackPress',()=>{if(!f)return false;if(f.cursor>0)back();else exit();return true;});return()=>listener.remove();});
  const last=s.sessions.filter(x=>x.status!=='missed').sort((a,b)=>b.at-a.at)[0];
  const finishFlow=()=>{
   if(!f)return;
-  if(f.kind==='intake'){update({onboard:true,coach:{...c,profile:f.answers,flow:undefined,ready:undefined}});return;}
-  if(f.kind==='daily'){patch({ready:{date:dayKey(),answers:f.answers},flow:undefined});return;}
+  if(f.kind==='intake'){update({onboard:true,coach:{...c,profile:f.answers,flow:undefined,draft:undefined,ready:undefined}});return;}
+  if(f.kind==='daily'){patch({ready:{date:dayKey(),answers:f.answers},flow:undefined,draft:undefined});return;}
   if(f.kind==='recovery'){update({sessions:s.sessions.map(x=>x.id===f.target?{...x,recovery:Number(f.answers.recovery)}:x),coach:{...c,flow:undefined,ready:undefined}});return;}
   if(f.kind==='adapt'){
    const a={...c.ready!.answers},reason=f.answers.reason;
@@ -37,17 +40,18 @@ export default function Coach({s,update,library=false,onNavigate}:Props){
    const record={id:String(at),date:dayKey(),at,mode:active.decision.mode,minutes:Math.round(seconds/6)/10,planned:duration/60,effort,pain,talk,status:(active.skipped.length||elapsed(active,at)<duration?'partial':'complete') as 'partial'|'complete',reason:active.decision.reason,before:active.before};
    const groups=performedGroups(active,at);
    const feedback={...c.feedback};for(const g of groups){feedback[g]=[...(feedback[g]??[]),{at,effort:f.answers.group===g?8:record.status==='partial'?Math.max(6,effort):effort,pain}];}
-   update({sessions:[record,...s.sessions],active:null,coach:{...c,flow:undefined,ready:undefined,feedback}});
+   update({sessions:[record,...s.sessions],active:null,coach:{...c,flow:undefined,draft:undefined,ready:undefined,feedback}});
   }
  };
  if(library)return box(<>{txt(t('کتابخانه حرکت‌ها','Movement library'),26)}{txt(t('هر حرکت روش و تصویر خودش را دارد. توان یک حرکت به بقیه تعمیم داده نمی‌شود.','Each movement has its own instructions and images. Ability in one does not imply ability in others.'),15,muted)}{selected?<>{button(t('بازگشت به فهرست','Back to list'),()=>select(''),true)}{txt(movements[selected].name[s.lang],24)}<MovementView id={selected} lang={s.lang} ink={ink} details/></>:Object.entries(movements).map(([id,m])=><View key={id}>{button(m.name[s.lang],()=>select(id),true)}</View>)}</>);
  if(f){
-  if(f.kind==='daily'&&f.date!==dayKey())return box(<>{txt(t('این بررسی برای روز دیگری بود؛ حال امروز را دوباره بررسی کنیم.','This check was for a different day; let’s check how you feel today.'))}{button(t('بررسی امروز','Check today'),()=>begin('daily'))}</>);
+  if(f.kind==='daily'&&f.date!==dayKey())return box(<>{txt(t('این بررسی برای روز دیگری بود؛ حال امروز را دوباره بررسی کنیم.','This check was for a different day; let’s check how you feel today.'))}{button(t('بررسی امروز','Check today'),()=>begin('daily'))}{button(t('خروج از بررسی','Exit check'),exit,true)}</>);
   const list=questions[f.kind],q=list[f.cursor];
   const safety=f.kind==='daily'&&(f.answers.symptoms==='yes'||f.answers.pain==='yes');
-  if(safety)return box(<>{txt(t('امروز اول مراقبت','Care comes first today'),26)}{txt(f.answers.symptoms==='yes'?t('تمرین نکن. درد قفسه سینه، احساس غش یا تنگی نفس شدید نیاز به بررسی فوری دارد؛ با اورژانس محلی تماس بگیر.','Do not exercise. Chest pain, feeling faint or severe breathlessness needs urgent assessment; contact local emergency services.'):t('با درد یا بیماری تمرین نکن. اگر ادامه داشت، ارزیابی حرفه‌ای بگیر.','Do not train through pain or illness. Seek assessment if it persists.'))}{button(t('اصلاح پاسخ','Edit answer'),back,true)}{button(t('بستن بررسی','Close check'),()=>patch({flow:undefined,ready:undefined}),true)}</>);
+  if(safety)return box(<>{txt(t('امروز اول مراقبت','Care comes first today'),26)}{txt(f.answers.symptoms==='yes'?t('تمرین نکن. درد قفسه سینه، احساس غش یا تنگی نفس شدید نیاز به بررسی فوری دارد؛ با اورژانس محلی تماس بگیر.','Do not exercise. Chest pain, feeling faint or severe breathlessness needs urgent assessment; contact local emergency services.'):t('با درد یا بیماری تمرین نکن. اگر ادامه داشت، ارزیابی حرفه‌ای بگیر.','Do not train through pain or illness. Seek assessment if it persists.'))}{button(t('اصلاح پاسخ','Edit answer'),back,true)}{button(t('بستن بررسی','Close check'),exit,true)}</>);
   return box(<>{txt(t('قدم به قدم','One step at a time'),15,muted)}{txt(`${Math.min(f.cursor+1,list.length)} / ${list.length}`,15,muted)}
-   {q?<>{txt(q.title[s.lang],25)}{q.hint&&txt(q.hint[s.lang],15,muted)}{q.options.map(o=><View key={o.id}>{button((f.answers[q.key]===o.id?'✓ ':'')+o.label[s.lang],()=>patch({flow:answerFlow(f,o.id)}),true)}</View>)}</>:<>{txt(t('پاسخ‌ها آماده‌اند','Your answers are ready'),25)}{list.map(q=><View key={q.key}>{txt(q.title[s.lang],14,muted)}{txt(q.options.find(o=>o.id===f.answers[q.key])?.label[s.lang]??'—')}</View>)}{button(t('تأیید و ادامه','Confirm and continue'),finishFlow)}</>}
+   {button(t('خروج از بررسی','Exit check'),exit,true)}
+   {q?<>{txt(q.title[s.lang],25)}{q.hint&&txt(q.hint[s.lang],15,muted)}{q.options.map(o=><View key={o.id}>{button((f.answers[q.key]===o.id?'✓ ':'')+o.label[s.lang],()=>patch({flow:answerFlow(f,o.id)}),true)}</View>)}{q.key==='minutes'&&<>{txt(t('زمان دلخواه (۵ تا ۱۲۰ دقیقه)','Custom time (5–120 minutes)'))}<TextInput accessibilityLabel="Custom minutes" keyboardType="number-pad" value={custom} onChangeText={v=>setCustom(numericText(v))} style={{color:ink,borderWidth:1,borderColor:muted,borderRadius:12,padding:15,fontSize:20}}/>{button(t('ثبت زمان دلخواه','Use custom time'),()=>{if(validAnswer(q,custom))patch({flow:answerFlow(f,custom)});else Alert.alert(t('عدد صحیح ۵ تا ۱۲۰ وارد کن','Enter a whole number from 5 to 120'));},true)}</>}</>:<>{txt(t('پاسخ‌ها آماده‌اند','Your answers are ready'),25)}{list.map(q=><View key={q.key}>{txt(q.title[s.lang],14,muted)}{txt(q.options.find(o=>o.id===f.answers[q.key])?.label[s.lang]??f.answers[q.key]??'—')}</View>)}{button(t('تأیید و ادامه','Confirm and continue'),finishFlow)}</>}
    {f.cursor>0&&button(t('برگشت و ویرایش','Back and edit'),back,true)}
    {txt(t('پیشرفت ذخیره می‌شود؛ می‌توانی برنامه را ببندی و بعد ادامه بدهی.','Progress is saved; you can close the app and continue later.'),13,muted)}
   </>);
@@ -56,35 +60,47 @@ export default function Coach({s,update,library=false,onNavigate}:Props){
   const a=s.active,seconds=elapsed(a,now),total=a.steps.reduce((n,x)=>n+x.seconds,0);
   const ends=a.steps.map((_,i)=>a.steps.slice(0,i+1).reduce((n,x)=>n+x.seconds,0));
   const index=ends.findIndex(end=>seconds<end),end=ends[index]??total,step=a.steps[index];
-  const pause=()=>update({active:{...a,elapsed:seconds,started:now,paused:!a.paused}});
+  const transition=!!step?.transition&&!a.transitions?.includes(index);
+  const pause=()=>update({active:{...a,elapsed:seconds,started:now,paused:transition?false:!a.paused,...(transition?{transitions:[...(a.transitions??[]),index]}:{})}});
   const result=()=>update({active:{...a,elapsed:seconds,started:now,paused:true},coach:{...c,flow:newFlow('post')}});
   return box(<>{txt(t('جلسه امروز','Today’s session'),15,muted)}{txt(step?(step.phase==='warmup'?t('گرم‌کردن','Warm-up'):step.phase==='cooldown'?t('سردکردن','Cool-down'):t('تمرین','Exercise')):t('جلسه تمام شد','Session finished'),24)}
    {step?<>{txt(step.title[s.lang],27)}{txt(`${Math.max(0,Math.ceil(end-seconds))} ${t('ثانیه','seconds')}`,34)}{txt(`${index+1} / ${a.steps.length}`,14,muted)}{step.note&&txt(step.note[s.lang])}
-   {button(a.paused?t('ادامه','Resume'):t('مکث','Pause'),pause)}
+   {step.phase==='work'&&step.exercise&&txt(`${t('ست / بازه','Set / interval')} ${a.steps.slice(0,index+1).filter(x=>x.phase==='work'&&x.exercise).length} / ${a.steps.filter(x=>x.phase==='work'&&x.exercise).length}`,16,muted)}
+   {step.location&&txt(step.location==='inside'?t('مکان: داخل خانه','Location: indoors'):t('مکان: بیرون','Location: outside'),16,muted)}
+   {transition&&txt(t('تایمر برای تغییر مکان متوقف است. پس از رسیدن به مسیر امن، گرم‌کردن بعدی را شروع کن.','Timer stopped for a location change. Once on a safe route, start the next warm-up.'))}
+   {button(transition?t('آماده‌ام؛ ادامه در مکان بعد','Ready; continue at next location'):a.paused?t('ادامه','Resume'):t('مکث','Pause'),pause)}
+   {a.steps[index+1]&&txt(t('بعدی: ','Next: ')+a.steps[index+1].title[s.lang],16,muted)}
    {step.exercise&&<MovementView key={step.exercise} id={step.exercise} lang={s.lang} ink={ink} compact/>}
-   {button(t('رد کردن این مرحله','Skip this step'),()=>update({active:{...a,elapsed:end,started:now,skipped:[...a.skipped,index],skippedSeconds:(a.skippedSeconds??0)+Math.max(0,end-seconds)}}),true)}
+   {!transition&&button(t('رد کردن این مرحله','Skip this step'),()=>update({active:{...a,elapsed:end,started:now,skipped:[...a.skipped,index],skippedSeconds:(a.skippedSeconds??0)+Math.max(0,end-seconds)}}),true)}
+   <AudioControls s={s} update={update}/>
    {button(t('پایان زودتر و ثبت نتیجه','Finish early and record'),result,true)}
    </>:<>{txt(t('حالا چند سؤال کوتاه برای برنامه بعدی.','A few short questions to guide your next session.'))}{button(t('ثبت نتیجه','Record result'),result)}</>}
    {txt(t('با درد، سرگیجه یا علائم غیرعادی توقف کن؛ برای علائم شدید کمک فوری بگیر.','Stop with pain, dizziness or unusual symptoms; seek urgent help for severe symptoms.'),14,muted)}
    {txt(`${Math.floor(Math.min(seconds,total)/60)} / ${Math.round(total/60)} ${t('دقیقه','minutes')}`,14,muted)}
   </>);
  }
- if(!completeAnswers('intake',c.profile))return box(<>{txt(t('برنامه‌ای متناسب با تو','A plan that fits you'),28)}{txt(t('یک بار با چند پاسخ کوتاه شروع می‌کنیم. پس از آن فقط حال امروز و ریکاوری را می‌پرسیم.','Start with a few short answers, once. After that, we ask about today and your recovery.'))}{button(t('شروع آشنایی','Get started'),()=>begin('intake'))}</>);
+ const resumeDraft=c.draft&&button(t('ادامه پیش‌نویس ذخیره‌شده','Resume saved draft'),()=>patch({flow:c.draft,draft:undefined}),true);
+ if(!completeAnswers('intake',c.profile))return box(<>{txt(t('برنامه‌ای متناسب با تو','A plan that fits you'),28)}{txt(t('یک بار با چند پاسخ کوتاه شروع می‌کنیم. پس از آن فقط حال امروز و ریکاوری را می‌پرسیم.','Start with a few short answers, once. After that, we ask about today and your recovery.'))}{resumeDraft}{button(t('شروع آشنایی','Get started'),()=>begin('intake'))}</>);
  if(last&&last.date!==dayKey()&&last.recovery===undefined)return box(<>{txt(t('اول، حال بعد از جلسه قبل','First, recovery from your last session'),25)}{button(t('ثبت ریکاوری','Record recovery'),()=>begin('recovery',last.id))}</>);
  const ready=c.ready?.date===dayKey()?c.ready:undefined;
  const plan=ready?choosePlan(c.profile,ready.answers,s.sessions,c.feedback,now):undefined;
  return box(<>{txt(t('امروز','Today'),15,muted)}{txt(t('برنامه امروز من','My plan today'),29)}
+  {resumeDraft}
   {!plan?<>{txt(last?.date===dayKey()?t('جلسه امروز ثبت شد. دفعه بعد بازخوردت را در نظر می‌گیرم.','Today’s session is saved. Your feedback will guide the next plan.'):t('چند سؤال کوتاه، سپس برنامه آماده است.','A few short questions, then your plan is ready.'))}{button(t('برنامه امروز من','My plan today'),()=>begin('daily'))}</>:<>
-   {txt(names[plan.decision.mode][s.lang],24)}{txt(plan.decision.reason[s.lang])}
+   {txt(!plan.steps.length?t('استراحت یا بررسی بیشتر','Rest or further assessment'):plan.decision.state==='return'?t('شروع کوتاه','Short starting session'):plan.decision.mode==='home'?t('حرکت راحت / ریکاوری','Comfortable movement / recovery'):names[plan.decision.mode][s.lang],24)}{txt(plan.decision.reason[s.lang])}
    {!!plan.steps.length&&<>{txt(`${plan.decision.minutes} ${t('دقیقه، با گرم‌کردن و سردکردن','minutes, including warm-up and cool-down')}`,19)}{txt([...new Set(plan.steps.filter(x=>x.exercise).map(x=>x.title[s.lang]))].join(' • '),16,muted)}
-   {button(t('شروع برنامه','Start plan'),()=>update({active:{started:now,elapsed:0,paused:false,steps:plan.steps,decision:plan.decision,skipped:[]}}))}
+   {txt(t('تمرین اصلی امروز','Today’s main work'),21)}
+   {[...new Set(plan.steps.filter(x=>x.phase==='work'&&x.exercise).map(x=>x.exercise!))].map(id=>{const sets=plan.steps.filter(x=>x.phase==='work'&&x.exercise===id);return <View key={id}>{txt(`${movements[id].name[s.lang]} · ${sets.length} ${t('ست / بازه','sets / intervals')} · ${sets[0].reps?`${sets[0].reps} ${t('تکرار در هر ست','reps per set')}`:`${sets.map(x=>x.seconds).join(' + ')} ${t('ثانیه','seconds')}`}`,16)}</View>;})}
+   {txt(t('زمان ست شامل فرصت انجام آرام تکرارهاست؛ بقیه آن استراحت است. تعداد انجام‌شده خودکار شمرده نمی‌شود.','Set windows allow slow repetitions, then rest. Completed repetitions are not counted automatically.'),14,muted)}
+   <AudioControls s={s} update={update}/>
+   {button(t('شروع برنامه','Start plan'),()=>update({active:{id:String(now),started:now,elapsed:0,paused:false,steps:plan.steps,decision:plan.decision,skipped:[]}}))}
    {button(t('امروز مناسبم نیست','This does not suit me today'),()=>begin('adapt'),true)}
    {button(expanded?t('بستن جزئیات','Hide details'):t('مراحل و مقدارها','Steps and doses'),()=>expand(!expanded),true)}
-   {expanded&&plan.steps.map((x,i)=><View key={i}>{txt(`${i+1}. ${x.title[s.lang]} · ${x.seconds} ${t('ثانیه','sec')}${x.reps?` · ${x.reps} ${t('تکرار','reps')}`:''}`,16)}</View>)}
+   {expanded&&plan.steps.map((x,i)=><View key={i}>{txt(`${i+1}. ${x.title[s.lang]} · ${x.seconds} ${t('ثانیه','sec')}${x.reps?` · ${x.reps} ${t('تکرار','reps')}`:''} · ${x.location==='outside'?t('بیرون','Outside'):t('خانه','Indoors')}${x.transition?t(' — توقف برای تغییر مکان',' — manual location transition'):''}`,16)}</View>)}
    </>}
-   {button(t('اصلاح حال امروز','Edit today’s answers'),()=>patch({flow:{...newFlow('daily'),answers:ready!.answers},ready:undefined}),true)}
+   {button(t('اصلاح حال امروز','Edit today’s answers'),()=>patch({flow:{...newFlow('daily'),answers:{...ready!.answers},baseline:{...ready!.answers}}}),true)}
    {last&&button(t('به‌روزرسانی ریکاوری','Update recovery'),()=>begin('recovery',last.id),true)}
   </>}
-  {button(t('ویرایش توان و محدودیت‌ها','Edit ability and restrictions'),()=>patch({flow:{...newFlow('intake'),answers:c.profile}}),true)}
+  {button(t('ویرایش توان و محدودیت‌ها','Edit ability and restrictions'),()=>patch({flow:{...newFlow('intake'),answers:{...c.profile},baseline:{...c.profile}}}),true)}
  </>);
 }

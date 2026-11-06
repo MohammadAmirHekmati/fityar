@@ -29,11 +29,12 @@ jobs:
           npm run typecheck
           npm test
           npx expo prebuild --platform android --no-install
+          node tests/setup-acceptance.cjs
       - name: Build release / ساخت نسخه انتشار
         working-directory: android
         run: |
           chmod +x gradlew
-          ./gradlew assembleRelease --no-daemon -PreactNativeArchitectures=arm64-v8a,armeabi-v7a,x86_64
+          ./gradlew :app:assembleRelease :acceptance:assembleDebug :acceptance:assembleDebugAndroidTest --no-daemon -PreactNativeArchitectures=arm64-v8a,armeabi-v7a,x86_64
       - name: Sign APK / امضای بسته
         env:
           KEYSTORE: ${{ secrets.ANDROID_KEYSTORE }}
@@ -52,6 +53,8 @@ jobs:
           path: |
             fityar.apk
             fityar.apk.sha256
+            android/acceptance/build/outputs/apk/debug/acceptance-debug.apk
+            android/acceptance/build/outputs/apk/androidTest/debug/acceptance-debug-androidTest.apk
       - name: Enable emulator acceleration / فعال‌سازی شبیه‌ساز
         run: |
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
@@ -75,7 +78,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          TAG="v1.1.0-preview.${GITHUB_RUN_NUMBER}"
+          TAG="v1.2.0-preview.${GITHUB_RUN_NUMBER}"
           gh release view "$TAG" >/dev/null 2>&1 || gh release create "$TAG" --target "$GITHUB_SHA" --prerelease --title 'FitYar preview / پیش‌نمایش فیت‌یار' --notes-file RELEASE.md
           gh release upload "$TAG" fityar.apk fityar.apk.sha256 --clobber
 

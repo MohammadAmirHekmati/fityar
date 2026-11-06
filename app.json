@@ -2,7 +2,7 @@
   "expo": {
     "name": "FitYar",
     "slug": "fityar",
-    "version": "1.1.0",
+    "version": "1.2.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "automatic",
@@ -20,9 +20,12 @@
       "permissions": [
         "POST_NOTIFICATIONS",
         "VIBRATE",
-        "SCHEDULE_EXACT_ALARM"
+        "SCHEDULE_EXACT_ALARM",
+        "FOREGROUND_SERVICE",
+        "FOREGROUND_SERVICE_MEDIA_PLAYBACK",
+        "WAKE_LOCK"
       ],
-      "versionCode": 2
+      "versionCode": 3
     },
     "web": {
       "favicon": "./assets/favicon.png"
@@ -31,7 +34,9 @@
       "expo-sqlite",
       "expo-sharing",
       "expo-localization",
-      "expo-notifications"
-    ]
+      "expo-notifications",
+      "./plugins/withWidget.cjs"
+    ],
+    "scheme": "fityar"
   }
 }

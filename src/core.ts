@@ -156,6 +156,8 @@ export function decide(
   );
 }
 export interface Step {
+  location?: 'inside'|'outside';
+  transition?: boolean;
   phase?: 'warmup'|'work'|'cooldown';
   reps?: number;
   title: Text;
@@ -241,6 +243,8 @@ export function plan(d: Decision, ratings:Ratings = {}): Step[] {
   return steps;
 }
 export interface Active {
+  id?:string;
+  transitions?: number[];
   before?: Check;
   started: number;
   elapsed: number;
@@ -255,7 +259,13 @@ export function actualSeconds(a: Active, now = Date.now()) {
   return Math.max(0, Math.min(duration, elapsed(a, now)) - (a.skippedSeconds ?? 0));
 }
 export function elapsed(a: Active, now = Date.now()) {
-  return Math.max(0, a.elapsed + (a.paused ? 0 : (now - a.started) / 1000));
+  const raw=Math.max(0, a.elapsed + (a.paused ? 0 : (now - a.started) / 1000));
+  let start=0;
+  for(let i=0;i<(a.steps?.length??0);i++){
+    if(a.steps[i].transition&&!a.transitions?.includes(i))return Math.min(raw,start);
+    start+=a.steps[i].seconds;
+  }
+  return raw;
 }
 export const exercises = [
   {

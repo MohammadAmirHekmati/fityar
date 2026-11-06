@@ -1,7 +1,9 @@
 import type { Active, Lang, Session } from "./core";
 import {validateCoach} from './coach.ts';
 import type {CoachState} from './coach';
+import type {ReminderDay} from './reminderPlan';
 export interface State {
+  audio?:{enabled:boolean;volume:number;vibrate:boolean};
   version: 1;
   coach?: CoachState;
   lang: Lang;
@@ -19,6 +21,11 @@ export interface State {
   measures: { date: string; weight: number; waist: number }[];
   movementRatings?: Record<string, { at: number; effort: number; pain: boolean }[]>;
   reminders: {
+    workEndHour?:number;
+    workEndMinute?:number;
+    prep?:boolean;
+    strong?:boolean;
+    days?:Record<string,ReminderDay>;
     enabled: boolean;
     hour: number;
     minute: number;
@@ -66,6 +73,7 @@ export function validate(value: unknown): State {
   const before=(x:unknown)=>x===undefined||(obj(x)&&num(x.minutes,5,60)&&num(x.sleep,0,24)&&num(x.energy,1,5)&&typeof x.pain==='boolean'&&typeof x.symptoms==='boolean'&&typeof x.outside==='boolean'&&modes.includes(String(x.mode)));
   if (!obj(value)) return fail();
   const s = value as unknown as State;
+  if(s.audio&&(!obj(s.audio)||typeof s.audio.enabled!=='boolean'||typeof s.audio.vibrate!=='boolean'||!num(s.audio.volume,0,100)))return fail();
   if(s.coach!==undefined&&!validateCoach(s.coach))return fail();
   if(s.coach?.flow?.kind==='post'&&!s.active)return fail();
   if(s.coach?.flow?.kind==='adapt'&&!s.coach.ready)return fail();
@@ -78,9 +86,12 @@ export function validate(value: unknown): State {
   if(s.sessions.some(x=>!before(x.before))||(s.active&&!before(s.active.before)))return fail();
   if(s.measures.some(x=>!obj(x)||!date(x.date)||!num(x.weight,25,350)||!num(x.waist,35,250)))return fail();
   const r=s.reminders;if(!obj(r)||typeof r.enabled!=='boolean'||typeof r.water!=='boolean'||typeof r.move!=='boolean'||![r.hour,r.quietStart,r.quietEnd].every(v=>num(v,0,23)&&Number.isInteger(v))||!num(r.minute,0,59)||!Number.isInteger(r.minute))return fail();
+  if((r.workEndHour!==undefined&&(!Number.isInteger(r.workEndHour)||!num(r.workEndHour,0,23)))||(r.workEndMinute!==undefined&&(!Number.isInteger(r.workEndMinute)||!num(r.workEndMinute,0,59)))||[r.prep,r.strong].some(v=>v!==undefined&&typeof v!=='boolean'))return fail();
+  if(r.days!==undefined&&(!obj(r.days)||Object.entries(r.days).length>100||Object.entries(r.days).some(([d,x])=>!date(d)||!obj(x)||!num(x.snoozes,0,10000)||(x.snoozeUntil!==undefined&&!num(x.snoozeUntil,0,1e14))||(x.skip!==undefined&&typeof x.skip!=='boolean')||(x.handled!==undefined&&!strings(x.handled)))))return fail();
   if(s.movementRatings!==undefined&&(!obj(s.movementRatings)||!Object.entries(s.movementRatings).every(([key,entries])=>['squat','push','lunge','bridge','w','deadbug','side','run'].includes(key)&&Array.isArray(entries)&&entries.every(x=>obj(x)&&num(x.at,0,1e14)&&num(x.effort,1,10)&&typeof x.pain==='boolean'))))return fail();
   const a=s.active;
-  if(a!==null){if(!obj(a)||!num(a.started,0,1e14)||!num(a.elapsed,0,1e7)||typeof a.paused!=='boolean'||!Array.isArray(a.steps)||a.steps.length>100||!a.steps.every(x=>obj(x)&&text(x.title)&&num(x.seconds,1,3600))||!Array.isArray(a.skipped)||!a.skipped.every(x=>Number.isInteger(x)&&x>=0&&x<a.steps.length)||!obj(a.decision)||!modes.includes(a.decision.mode)||!num(a.decision.minutes,0,300)||!text(a.decision.reason)||!['stop','rest','return','reduce','hold','progress'].includes(a.decision.state)||(a.skippedSeconds!==undefined&&!num(a.skippedSeconds,0,1e7)))return fail();}
+  if(a!==null){if(!obj(a)||!num(a.started,0,1e14)||!num(a.elapsed,0,1e7)||typeof a.paused!=='boolean'||!Array.isArray(a.steps)||a.steps.length>300||!a.steps.every(x=>obj(x)&&text(x.title)&&num(x.seconds,1,3600))||!Array.isArray(a.skipped)||!a.skipped.every(x=>Number.isInteger(x)&&x>=0&&x<a.steps.length)||!obj(a.decision)||!modes.includes(a.decision.mode)||!num(a.decision.minutes,0,300)||!text(a.decision.reason)||!['stop','rest','return','reduce','hold','progress'].includes(a.decision.state)||(a.skippedSeconds!==undefined&&!num(a.skippedSeconds,0,1e7)))return fail();}
+  if(a?.transitions&&(!Array.isArray(a.transitions)||a.transitions.some(i=>!Number.isInteger(i)||i<0||i>=a.steps.length||!a.steps[i].transition)))return fail();
   return s;
 }
 
