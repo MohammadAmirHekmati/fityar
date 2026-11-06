@@ -106,7 +106,7 @@ adb('shell','am','force-stop',APP);adb('shell','svc','wifi','disable');adb('shel
 assert 'versionCode=3' in adb('shell','dumpsys','package',APP)
 assert seek('Knee push-up'),'Guided profile or ready plan lost on upgrade';shot('02-upgraded-plan')
 click('Progress');click('Last 7 readings average: 70.0 kg');click('Manually marked not done');shot('03-retained-data')
-click('Food');click('Browse, favorites and logs');enter('Search food or alias','Rice');click('Today’s food log');assert has('Rice · 1'),'Food record lost on upgrade'
+click('Food');click('Browse, favorites and logs');enter('Search food or alias','Rice');click('Today’s food log');assert seek('Rice · 1'),'Food record lost on upgrade'
 click('Today');click('Edit ability and restrictions');click('Exit check');assert has('My plan today'),'Unchanged reassessment did not exit'
 click('Edit ability and restrictions');click('No');click('Exit check');click('Discard changes');assert seek('Knee push-up'),'Discard changed prior profile'
 click('Edit ability and restrictions');click('No');click('Exit check');click('Save for later');assert seek('Knee push-up');click('Edit today’s answers');click('Exit check');click('Resume saved draft');click('Exit check');click('Discard changes');shot('04-cancel-preserves-plan')
