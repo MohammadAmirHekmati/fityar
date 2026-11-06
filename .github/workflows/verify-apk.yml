@@ -1,0 +1,61 @@
+name: Verify existing APK / بررسی بسته ساخته‌شده
+on:
+  workflow_dispatch:
+    inputs:
+      build_run:
+        description: 'Build run ID / شناسه اجرای ساخت'
+        required: true
+        type: string
+      publish:
+        description: 'Publish after success / انتشار پس از موفقیت'
+        type: boolean
+        default: false
+permissions:
+  contents: write
+  actions: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+      - uses: actions/download-artifact@v4
+        with:
+          name: fityar-apk
+          run-id: ${{ inputs.build_run }}
+          github-token: ${{ github.token }}
+      - name: Verify checksum / بررسی صحت فایل
+        run: sha256sum -c fityar.apk.sha256
+      - name: Enable emulator / فعال‌سازی شبیه‌ساز
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Emulator acceptance / پذیرش شبیه‌ساز
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          arch: x86_64
+          profile: pixel_2
+          disable-animations: true
+          script: python tests/android-smoke.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: emulator-screenshots
+          path: screenshots/
+      - name: Publish verified APK / انتشار بسته بررسی‌شده
+        if: inputs.publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BUILD_RUN: ${{ inputs.build_run }}
+        run: |
+          NUMBER=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$BUILD_RUN" --jq .run_number)
+          SHA=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$BUILD_RUN" --jq .head_sha)
+          TAG="v1.0.0-preview.$NUMBER"
+          gh release view "$TAG" >/dev/null 2>&1 || gh release create "$TAG" --target "$SHA" --prerelease --title 'FitYar preview / پیش‌نمایش فیت‌یار' --notes-file RELEASE.md
+          gh release upload "$TAG" fityar.apk fityar.apk.sha256 --clobber

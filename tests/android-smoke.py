@@ -30,7 +30,11 @@ click('Settings');adb('shell','pm','grant',APP,'android.permission.POST_NOTIFICA
 for _ in range(12):
     time.sleep(5);notification_dump=adb('shell','dumpsys','notification','--noredact')
     if 'Movement reminder; check how you feel.' in notification_dump:break
-assert 'Movement reminder; check how you feel.' in notification_dump,'Background test notification missing'
+if 'Movement reminder; check how you feel.' not in notification_dump:
+    for name,args in [('notifications',['shell','dumpsys','notification','--noredact']),('alarms',['shell','dumpsys','alarm']),('runtime',['logcat','-d'])]:
+        with open('screenshots/'+name+'.txt','w') as f:f.write(adb(*args))
+    shot('notification-failure')
+    raise AssertionError('Background test notification missing')
 adb('shell','cmd','statusbar','expand-notifications');time.sleep(1);shot('04-notification');adb('shell','input','keyevent','4');launch();click('Train')
 click('Start',True);shot('05-session');adb('shell','input','keyevent','3');time.sleep(4);adb('shell','am','force-stop',APP);launch();click('Train');shot('06-restored-session')
 adb('shell','input','tap','540','1078');time.sleep(1)
