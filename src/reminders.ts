@@ -1,8 +1,8 @@
 import { AndroidImportance } from "expo-notifications";
-export {requestExactAlarmPermissionsAsync} from 'expo-notifications';
 import * as N from "expo-notifications";
 import { State } from "./storage";
 import { dayKey, elapsed, quietHour } from "./core";
+export {requestExactAlarmPermissionsAsync} from 'expo-notifications';
 N.setNotificationHandler({
   handleNotification: async () => ({
     shouldPlaySound: true,

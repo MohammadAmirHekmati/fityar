@@ -156,6 +156,8 @@ export function decide(
   );
 }
 export interface Step {
+  phase?: 'warmup'|'work'|'cooldown';
+  reps?: number;
   title: Text;
   seconds: number;
   exercise?: string;

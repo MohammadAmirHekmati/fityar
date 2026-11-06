@@ -25,6 +25,7 @@ jobs:
       - name: Install and verify / نصب و بررسی
         run: |
           npm ci
+          npm run lint
           npm run typecheck
           npm test
           npx expo prebuild --platform android --no-install
@@ -70,10 +71,11 @@ jobs:
           name: emulator-screenshots
           path: screenshots/
       - name: Publish preview / انتشار پیش‌نمایش
+        if: github.event_name == 'workflow_dispatch'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          TAG="v1.0.0-preview.${GITHUB_RUN_NUMBER}"
+          TAG="v1.1.0-preview.${GITHUB_RUN_NUMBER}"
           gh release view "$TAG" >/dev/null 2>&1 || gh release create "$TAG" --target "$GITHUB_SHA" --prerelease --title 'FitYar preview / پیش‌نمایش فیت‌یار' --notes-file RELEASE.md
           gh release upload "$TAG" fityar.apk fityar.apk.sha256 --clobber
 

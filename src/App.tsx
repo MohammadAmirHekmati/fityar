@@ -1,6 +1,8 @@
+import FoodGuide from "./FoodGuide";
+import Coach from "./GuidedCoach";
 import Illustration from "./Illustration";
 import {SafeAreaProvider,useSafeAreaInsets} from 'react-native-safe-area-context';
-import React, { useEffect, useState, useRef } from "react";
+import React, { useEffect, useState, useRef, useCallback } from "react";
 import {
   Alert,
   AppState,
@@ -46,13 +48,14 @@ function Main() {
   const insets=useSafeAreaInsets();
   const [s, setS] = useState<State>(() => load());
   const scrollRef=useRef<React.ComponentRef<typeof ScrollView>>(null);
+  const resetScroll=useCallback(()=>scrollRef.current?.scrollTo({y:0,animated:false}),[]);
   const latestState=useRef(s);
   useEffect(()=>{latestState.current=s;},[s]);
   const [page, setPage] = useState("today"),
     [tick, setTick] = useState(() => Date.now()),
     [notice, setNotice] = useState("");
   const hasActive=s.active!==null;
-  useEffect(()=>{scrollRef.current?.scrollTo({y:0,animated:false});},[page,hasActive]);
+  useEffect(()=>{scrollRef.current?.scrollTo({y:0,animated:false});},[page,hasActive,s.coach?.flow?.cursor,s.coach?.flow?.kind]);
   const [check, C] = useState<Check>({
     minutes: 20,
     sleep: 7,
@@ -130,6 +133,7 @@ function Main() {
       cumulative += x.seconds;
       return seconds < cumulative;
     }) ?? -1;
+  useEffect(()=>{resetScroll();},[stepIndex,resetScroll]);
   const step = active?.steps[stepIndex],
     remaining = Math.max(0, cumulative - seconds);
   useEffect(() => {
@@ -356,7 +360,7 @@ function Main() {
   const illustration = (id:string) => <Illustration id={id} fa={fa} accent={colors.accent} muted={colors.muted} border={colors.border}/>;
   const tabs = [
     ["today", "امروز", "Today"],
-    ["train", "تمرین", "Train"],
+    ["train", "حرکت‌ها", "Library"],
     ["food", "غذا", "Food"],
     ["trend", "روند", "Progress"],
     ["settings", "تنظیمات", "Settings"],
@@ -405,52 +409,12 @@ function Main() {
             </Text>
           </Pressable>
         )}
-        {!s.onboard ? (
-          card(
-            t("به ریتم خودت شروع کن", "Start at your own pace"),
-            <>
-              {txt(
-                t(
-                  "همراه آفلاین بزرگسالان؛ بدون حساب یا هوش مصنوعی. داده‌ها روی دستگاه می‌مانند. راهنمای عمومی، نه جایگزین مراقبت پزشکی.",
-                  "An offline adult companion. No account or AI. Data stays on this device. General guidance, not medical care.",
-                ),
-              )}
-              {field(
-                t("سن (۱۸ سال یا بیشتر)", "Age (18 or older)"),
-                s.profile.age,
-                (v) => update({ profile: { ...s.profile, age: v } }),
-                true,
-              )}
-              {field(
-                t(
-                  "آسیب، محدودیت یا توصیه متخصص (اختیاری، محلی)",
-                  "Injury, limitations or professional advice (optional, local)",
-                ),
-                s.profile.limitations,
-                (v) => update({ profile: { ...s.profile, limitations: v } }),
-              )}
-              {txt(
-                t(
-                  "برای بیماری، آسیب یا علائم نگران‌کننده درباره فعالیت مناسب با متخصص مشورت کن. جلسه اول سبک و بدون آزمون بیشینه است.",
-                  "For conditions, injuries or concerning symptoms, discuss suitable activity with a professional. The first session is gentle, with no maximum test.",
-                ),
-                14,
-                true,
-              )}
-              {button(t("شروع", "Begin"), () => {
-                if (!Number.isFinite(Number(s.profile.age)) || Number(s.profile.age) < 18 || Number(s.profile.age) > 100) {
-                  setNotice(
-                    t("سن معتبر بزرگسال وارد کن.", "Enter a valid adult age."),
-                  );
-                  return;
-                }
-                update({ onboard: true });
-              })}
-            </>,
-          )
+        {!s.onboard || page === "today" ? (
+          <Coach s={s} update={update}/>
         ) : (
           <>
-            {page === "today" && (
+            {page === "train" && <Coach s={s} update={update} library onNavigate={resetScroll}/>}
+            {page === "legacytoday" && (
               <>
                 {card(
                   t("امروز، با توجه به حال تو", "Today, based on how you feel"),
@@ -467,7 +431,7 @@ function Main() {
                       active
                         ? t("ادامه جلسه", "Resume session")
                         : t("بررسی آمادگی", "Check readiness"),
-                      () => setPage("train"),
+                      () => setPage("today"),
                     )}
                   </>,
                 )}
@@ -573,7 +537,7 @@ function Main() {
                             },
                           },
                         });
-                        setPage("train");
+                        setPage("legacytrain");
                       },
                       true,
                     )}
@@ -607,7 +571,7 @@ function Main() {
                 )}
               </>
             )}
-            {page === "train" && (
+            {page === "legacytrain" && (
               <>
                 {active ? (
                   <>
@@ -851,7 +815,8 @@ function Main() {
                 )}
               </>
             )}
-            {page === "food" && (
+            {page === "food" && <FoodGuide s={s} update={update} onNavigate={resetScroll} advanced={()=>setPage("legacyfood")}/>}
+            {page === "legacyfood" && (
               <>
                 {card(
                   t("چی بخورم؟", "Food choices"),
@@ -1161,6 +1126,7 @@ function Main() {
                 ))}
               </>
             )}
+            {page === "settings" && <>{button(t("ثبت فعالیت و عادت‌ها", "Activity and habit logs"),()=>setPage("legacytoday"),true)}</>}
             {page === "settings" && (
               <>
                 {card(
@@ -1502,7 +1468,3 @@ const styles = StyleSheet.create({
   },
   nav: { borderTopWidth: 1, paddingBottom: 24, flexDirection: "row" },
 });
-
-
-
-

@@ -1,6 +1,9 @@
 import type { Active, Lang, Session } from "./core";
+import {validateCoach} from './coach.ts';
+import type {CoachState} from './coach';
 export interface State {
   version: 1;
+  coach?: CoachState;
   lang: Lang;
   dark: boolean;
   onboard: boolean;
@@ -63,6 +66,7 @@ export function validate(value: unknown): State {
   const before=(x:unknown)=>x===undefined||(obj(x)&&num(x.minutes,5,60)&&num(x.sleep,0,24)&&num(x.energy,1,5)&&typeof x.pain==='boolean'&&typeof x.symptoms==='boolean'&&typeof x.outside==='boolean'&&modes.includes(String(x.mode)));
   if (!obj(value)) return fail();
   const s = value as unknown as State;
+  if(s.coach!==undefined&&!validateCoach(s.coach))return fail();
   if(s.version!==1 || !['fa','en'].includes(s.lang) || typeof s.dark!=='boolean' || typeof s.onboard!=='boolean' || typeof s.vegetarian!=='boolean')return fail();
   if(!obj(s.profile)||!str(s.profile.age)||!str(s.profile.limitations))return fail();
   for(const key of ['sessions','meals','measures'] as const)if(!Array.isArray(s[key])||s[key].length>10000)return fail();
