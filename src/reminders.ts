@@ -1,7 +1,7 @@
 import { AndroidImportance } from "expo-notifications";
 import * as N from "expo-notifications";
 import { State } from "./storage";
-import { dayKey, elapsed } from "./core";
+import { dayKey, elapsed, quietHour } from "./core";
 N.setNotificationHandler({
   handleNotification: async () => ({
     shouldPlaySound: true,
@@ -28,15 +28,14 @@ export function syncNotifications(s: State) {
   return queue;
 }
 async function applyNotifications(s: State) {
-  await N.cancelAllScheduledNotificationsAsync();
+  if(!s.onboard){await N.cancelAllScheduledNotificationsAsync();return;}
+  const scheduled=await N.getAllScheduledNotificationsAsync();
+  for(const request of scheduled)if(!['snooze','test'].includes(String(request.content.data?.kind)))await N.cancelScheduledNotificationAsync(request.identifier);
   if(!(await N.getPermissionsAsync()).granted) return;
   await N.setNotificationChannelAsync('fitness', {name:'FitYar / فیت‌یار',importance:AndroidImportance.DEFAULT});
   const fa = s.lang === "fa";
   const r = s.reminders;
-  const quiet = (h: number) =>
-    r.quietStart > r.quietEnd
-      ? h >= r.quietStart || h < r.quietEnd
-      : h >= r.quietStart && h < r.quietEnd;
+  const quiet = (h: number) => quietHour(h,r.quietStart,r.quietEnd);
   const schedule = async (date: Date, title: string, body: string) => {
     if (date.getTime() > Date.now() && !quiet(date.getHours()))
       await N.scheduleNotificationAsync({
@@ -100,9 +99,12 @@ async function applyNotifications(s: State) {
     }
   }
 }
-export async function testNotification(lang: string, seconds = 5) {
+export async function testNotification(lang: string, seconds = 5, reminders?:State['reminders']) {
+  if(seconds>5&&reminders&&quietHour(new Date(Date.now()+seconds*1000).getHours(),reminders.quietStart,reminders.quietEnd))return false;
   return N.scheduleNotificationAsync({
+    identifier:seconds>5?'fityar-snooze':'fityar-test',
     content: {
+      data:{kind:seconds>5?'snooze':'test'},
       title: "FitYar / فیت‌یار",
       body:
         lang === "fa"

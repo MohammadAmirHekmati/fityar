@@ -73,6 +73,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release view v1.0.0-preview >/dev/null 2>&1 || gh release create v1.0.0-preview --prerelease --title 'FitYar preview / پیش‌نمایش فیت‌یار' --notes-file RELEASE.md
-          gh release upload v1.0.0-preview fityar.apk fityar.apk.sha256 --clobber
+          TAG="v1.0.0-preview.${GITHUB_RUN_NUMBER}"
+          gh release view "$TAG" >/dev/null 2>&1 || gh release create "$TAG" --target "$GITHUB_SHA" --prerelease --title 'FitYar preview / پیش‌نمایش فیت‌یار' --notes-file RELEASE.md
+          gh release upload "$TAG" fityar.apk fityar.apk.sha256 --clobber
 

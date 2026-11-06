@@ -1310,8 +1310,10 @@ export default function App() {
                     {button(
                       t("تعویق ۱۵ دقیقه", "Snooze 15 minutes"),
                       async () => {
-                        if (await permission())
-                          await testNotification(s.lang, 900);
+                        if (await permission()) {
+                          const result=await testNotification(s.lang, 900,s.reminders);
+                          setNotice(result===false?t('این زمان داخل ساعات سکوت است.','That time falls within quiet hours.'):t('یادآور برای ۱۵ دقیقه بعد تنظیم شد.','Reminder set for 15 minutes from now.'));
+                        }
                       },
                       true,
                     )}

@@ -2,6 +2,7 @@ export type Lang = "fa" | "en";
 export type Text = { fa: string; en: string };
 export const bi = (fa: string, en: string): Text => ({ fa, en });
 export const numericText = (value:string) => value.replace(/[۰-۹]/g,x=>String(x.charCodeAt(0)-1776)).replace(/[٠-٩]/g,x=>String(x.charCodeAt(0)-1632)).replace(/٫/g,'.');
+export const quietHour=(hour:number,start:number,end:number)=>start===end?false:start>end?hour>=start||hour<end:hour>=start&&hour<end;
 export const dayKey = (d = new Date()) =>
   `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 export type Mode = "walk" | "run" | "strength" | "home" | "short";
