@@ -4,6 +4,8 @@ An independent, offline Android fitness and food companion in Persian and Englis
 
 همراه مستقل و آفلاین اندروید برای تمرین و انتخاب غذا، به فارسی و انگلیسی. بدون هوش مصنوعی، حساب، تحلیل‌گر یا سرور. اطلاعات سلامت در SQLite محلی است و خروجی تنها با درخواست کاربر انجام می‌شود.
 
+[Download signed 1.2 preview APK / دانلود APK امضاشده ۱٫۲](https://github.com/MohammadAmirHekmati/fityar/releases/download/v1.2.0-preview.16/fityar.apk) · [Validation / اعتبارسنجی](docs/V3-ACCEPTANCE.md)
+
 ## Features / قابلیت‌ها
 
 - Saved, one-question-at-a-time intake and daily check; automatic plans with separately assessed push-up, leg and core ability. Guided warm-up, exercise and cool-down are included in the available time.
@@ -39,9 +41,9 @@ General adult wellness guidance, not diagnosis or treatment. Stop for concerning
 
 Notifications cover a rolling 7-day window. Android battery restrictions and force-stop can prevent delivery. The timer uses persisted timestamps, not a continuously running background JavaScript loop. Real-device lock-screen, notification, backup, and upgrade acceptance remain required before a stable release.
 
-Precise interval alerts require the optional Android exact-alarm permission exposed in Settings. Without it, Android can delay scheduled alerts. [Expo permission documentation](https://docs.expo.dev/versions/v58.0.0/sdk/notifications/#requestexactalarmpermissionsasync)
+Precise daily reminders use the optional Android exact-alarm permission exposed in Settings. Without it, Android can delay scheduled reminders. Workout cues use a separate native foreground audio service. [Expo permission documentation](https://docs.expo.dev/versions/v58.0.0/sdk/notifications/#requestexactalarmpermissionsasync)
 
-اعلان دقیق بخش‌های تمرین به مجوز اختیاری زمان‌بندی دقیق Android در تنظیمات نیاز دارد. بدون آن ممکن است اعلان با تأخیر برسد. [مستندات مجوز Expo](https://docs.expo.dev/versions/v58.0.0/sdk/notifications/#requestexactalarmpermissionsasync)
+یادآور دقیق روزانه از مجوز اختیاری زمان‌بندی دقیق Android در تنظیمات استفاده می‌کند. بدون آن ممکن است یادآور با تأخیر برسد. صدای تمرین با سرویس بومی مستقل اجرا می‌شود. [مستندات مجوز Expo](https://docs.expo.dev/versions/v58.0.0/sdk/notifications/#requestexactalarmpermissionsasync)
 
 اعلان‌ها در پنجره ۷ روزه تنظیم می‌شوند. محدودیت باتری و توقف اجباری ممکن است مانع آن‌ها شود. تایمر از زمان ذخیره‌شده استفاده می‌کند، نه اجرای دائمی جاوااسکریپت در پس‌زمینه. بررسی صفحه قفل، اعلان، بکاپ و ارتقا روی گوشی واقعی پیش از انتشار پایدار لازم است.
 
