@@ -50,7 +50,10 @@ def seek(text):
 def pause_timer():
     click('Pause');assert has('Resume'),'Pause failed'
 
-def launch():adb('shell','monkey','-p',APP,'1');time.sleep(7)
+def launch():
+    adb('shell','monkey','-p',APP,'1');time.sleep(7)
+    if any('inputmethod' in n.attrib.get('package','') for n in tree().iter('node')):
+        adb('shell','input','keyevent','4');time.sleep(.5)
 def enter(label,value):
     for _ in range(12):
         root=tree()
