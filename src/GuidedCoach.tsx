@@ -2,7 +2,7 @@ import React,{useEffect,useState} from 'react';
 import {View,Text,Pressable,BackHandler} from 'react-native';
 import type {State} from './model';
 import {actualSeconds,dayKey,elapsed,names} from './core';
-import {answerFlow,choosePlan,completeAnswers,movements,newFlow,questions} from './coach';
+import {answerFlow,choosePlan,completeAnswers,movements,newFlow,questions,performedGroups} from './coach';
 import type {CoachState,FlowKind} from './coach';
 import MovementView from './MovementView';
 const emptyCoach:CoachState={profile:{}};
@@ -35,8 +35,8 @@ export default function Coach({s,update,library=false,onNavigate}:Props){
    const active=s.active,at=now,effort=Number(f.answers.effort),pain=f.answers.pain==='yes',talk=f.answers.talk==='yes';
    const seconds=actualSeconds(active,at),duration=active.steps.reduce((n,x)=>n+x.seconds,0);
    const record={id:String(at),date:dayKey(),at,mode:active.decision.mode,minutes:Math.round(seconds/6)/10,planned:duration/60,effort,pain,talk,status:(active.skipped.length||elapsed(active,at)<duration?'partial':'complete') as 'partial'|'complete',reason:active.decision.reason,before:active.before};
-   const groups=[...new Set(active.steps.map(x=>movements[x.exercise??'']?.group).filter(Boolean))];
-   const feedback={...c.feedback};for(const g of groups){feedback[g]=[...(feedback[g]??[]),{at,effort:f.answers.group===g?8:effort,pain}];}
+   const groups=performedGroups(active,at);
+   const feedback={...c.feedback};for(const g of groups){feedback[g]=[...(feedback[g]??[]),{at,effort:f.answers.group===g?8:record.status==='partial'?Math.max(6,effort):effort,pain}];}
    update({sessions:[record,...s.sessions],active:null,coach:{...c,flow:undefined,ready:undefined,feedback}});
   }
  };

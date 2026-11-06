@@ -1,5 +1,5 @@
-import {bi, dayKey} from './core.ts';
-import type {Session, Step, Decision, Text} from './core';
+import {bi, dayKey, elapsed} from './core.ts';
+import type {Session, Step, Decision, Text, Active} from './core';
 export type Answers=Record<string,string>;
 export type FlowKind='intake'|'daily'|'post'|'recovery'|'adapt';
 export interface Flow {kind:FlowKind;cursor:number;answers:Answers;target?:string;date:string}
@@ -50,6 +50,11 @@ export function validateCoach(c:unknown):boolean {
  return true;
 }
 export interface CoachPlan {decision:Decision;steps:Step[];reps:Record<string,number>}
+export function performedGroups(active:Active,now:number):Movement['group'][] {
+ const clock=elapsed(active,now);let start=0;const groups=new Set<Movement['group']>();
+ active.steps.forEach((step,i)=>{const m=movements[step.exercise??''];if(m&&start<clock&&!active.skipped.includes(i)&&(step.phase==='work'||step.phase===undefined))groups.add(m.group);start+=step.seconds;});
+ return [...groups];
+}
 export function choosePlan(profile:Answers,a:Answers,history:Session[],feedback:CoachState['feedback']={},now=Date.now()):CoachPlan {
  const stop=(reason:Text,state:Decision['state']='rest'):CoachPlan=>({decision:{state,reason,mode:'home',minutes:0},steps:[],reps:{}});
  if(a.symptoms==='yes')return stop(bi('تمرین نکن. این علائم نیاز به بررسی فوری دارند؛ با اورژانس محلی تماس بگیر.','Do not exercise. These symptoms need urgent assessment; contact local emergency services.'),'stop');

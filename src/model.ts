@@ -67,6 +67,8 @@ export function validate(value: unknown): State {
   if (!obj(value)) return fail();
   const s = value as unknown as State;
   if(s.coach!==undefined&&!validateCoach(s.coach))return fail();
+  if(s.coach?.flow?.kind==='post'&&!s.active)return fail();
+  if(s.coach?.flow?.kind==='adapt'&&!s.coach.ready)return fail();
   if(s.version!==1 || !['fa','en'].includes(s.lang) || typeof s.dark!=='boolean' || typeof s.onboard!=='boolean' || typeof s.vegetarian!=='boolean')return fail();
   if(!obj(s.profile)||!str(s.profile.age)||!str(s.profile.limitations))return fail();
   for(const key of ['sessions','meals','measures'] as const)if(!Array.isArray(s[key])||s[key].length>10000)return fail();

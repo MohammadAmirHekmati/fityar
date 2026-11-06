@@ -6,6 +6,11 @@ An independent, offline Android fitness and food companion in Persian and Englis
 
 ## Features / قابلیت‌ها
 
+- Saved, one-question-at-a-time intake and daily check; automatic plans with separately assessed push-up, leg and core ability. Guided warm-up, exercise and cool-down are included in the available time.
+- آشنایی و بررسی روزانه تک‌سؤالی با ذخیره پیشرفت؛ برنامه خودکار با توان مستقل شنا، پا و میان‌تنه. گرم‌کردن، تمرین و سردکردن هدایت‌شده در زمان آزاد حساب می‌شوند.
+- Seventeen bilingual movement guides with clearly labeled two-frame illustrations; a real-photo supplement with attribution. [Planning rules and sources](COACH-DESIGN.md) · [Media credits](assets/movements/CREDITS.md).
+- هفده راهنمای حرکت دوزبانه با تصویرسازی دو مرحله‌ای و برچسب روشن؛ عکس واقعی تکمیلی با ذکر منبع. [قواعد و منابع](COACH-DESIGN.md) · [مجوز رسانه](assets/movements/CREDITS.md).
+
 - Conservative readiness rules, recovery check-ins, explainable decisions, persistent interval timer and external workout logging.
 - قواعد محافظه‌کارانه آمادگی، ثبت ریکاوری، دلیل تصمیم، تایمر پایدار و ثبت تمرین بیرون اپ.
 - Local bilingual food search, portions, allergies, available alternatives, favorites and recent logs.

@@ -510,12 +510,13 @@ function Main() {
                   <>
                     {txt(
                       t(
-                        "نبود ثبت به معنی شکست نیست. نوع تمرین بیرون اپ را در صفحه تمرین انتخاب کن، سپس اینجا ثبت کن.",
-                        "Missing data is not failure. Choose the external workout type in Train, then log it here.",
+                        "نبود ثبت به معنی شکست نیست. نوع فعالیت بیرون اپ را اینجا انتخاب و ثبت کن.",
+                        "Missing data is not failure. Choose and log the external activity here.",
                       ),
                       14,
                       true,
                     )}
+                    {chips(Object.entries(names).map(([id,v])=>({id,label:v[s.lang]})),check.mode,(v)=>C({...check,mode:v as Mode}))}
                     {button(
                       t("ثبت تمرین بیرون اپ", "Log external exercise"),
                       () => {

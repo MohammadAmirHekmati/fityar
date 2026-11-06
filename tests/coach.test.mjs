@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {choosePlan,newFlow,answerFlow,questions,movements,completeAnswers} from '../src/coach.ts';
+import {choosePlan,newFlow,answerFlow,questions,movements,completeAnswers,performedGroups} from '../src/coach.ts';
 import {artIds,movementSvg} from '../src/movementArt.ts';
 import {initial,validate} from '../src/model.ts';
 const now=new Date('2026-11-06T12:00:00').getTime();
@@ -17,3 +17,4 @@ test('Running requires experience and recovered easy history / شرط دویدن
 test('Back/edit invalidates downstream answers and survives backup / ویرایش و ادامه',()=>{let f=newFlow('intake');for(const q of questions.intake)f=answerFlow(f,q.options[0].id);assert.ok(completeAnswers('intake',f.answers));f=answerFlow({...f,cursor:2},'knee');assert.equal(f.cursor,3);assert.equal(f.answers.push,'knee');assert.equal(f.answers.legs,undefined);const state={...initial,coach:{profile:{},flow:f}};assert.deepEqual(validate(JSON.parse(JSON.stringify(state))),state);assert.deepEqual(validate({...initial,profile:{age:'30',limitations:'test'}}).profile,{age:'30',limitations:'test'});});
 test('Every movement has its own two-frame art and bilingual cues / تطبیق رسانه',()=>{assert.deepEqual([...artIds].sort(),Object.keys(movements).sort());for(const [id,m] of Object.entries(movements)){assert.ok(m.start.fa&&m.end.en&&m.avoid.fa);for(const frame of [0,1])assert.ok(movementSvg(id,frame).includes(id));}assert.notEqual(movementSvg('push-knee',0),movementSvg('push-regular',0));});
 test('Invalid guided backups rejected / رد بکاپ نامعتبر',()=>{for(const coach of [{profile:[]},{profile:{},flow:{kind:'bad',cursor:0,answers:{}}},{profile:{},flow:{kind:'daily',cursor:99,answers:{},date:'today'}}])assert.throws(()=>validate({...initial,coach}));});
+test('Unperformed and skipped groups never gain ability / حرکت انجام‌نشده سابقه توان نمی‌سازد',()=>{const p=choosePlan(profile,daily,[],{},now);const active={started:now,elapsed:30,paused:true,steps:p.steps,decision:p.decision,skipped:[]};assert.deepEqual(performedGroups(active,now),[]);const pushIndex=p.steps.findIndex(x=>x.phase==='work'&&x.exercise==='push-knee');const clock=p.steps.slice(0,pushIndex+1).reduce((n,x)=>n+x.seconds,0);assert.ok(performedGroups({...active,elapsed:clock},now).includes('push'));assert.ok(!performedGroups({...active,elapsed:clock,skipped:[pushIndex]},now).includes('push'));});
