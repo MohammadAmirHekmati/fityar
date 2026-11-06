@@ -1,3 +1,4 @@
+import {alternatives,held,sideHold} from './exerciseInfo.ts';
 import {bi} from './core.ts';
 import type {Session,Step,Text,Program} from './core';
 import type {Answers,CoachPlan,CoachState,Movement} from './coach';
@@ -5,7 +6,7 @@ import {clarificationNeeded,recoveryNeeded,trainingEvidence,exposure} from './tr
 
 // Fixed sessions, not a loop filling the user's free minutes. Stage advances only
 // after recovered, completed, meaningful work and elapsed training weeks.
-export function trainingPlan(profile:Answers,a:Answers,history:Session[],feedback:CoachState['feedback'],moves:Record<string,Movement>,now:number):CoachPlan {
+export function trainingPlan(profile:Answers,a:Answers,history:Session[],feedback:CoachState['feedback'],moves:Record<string,Movement>,now:number,skills:Answers={},swaps:Record<string,string>={}):CoachPlan {
  const e=trainingEvidence(history,now),available=Number(a.minutes),floor=profile.core==='yes';
  const variant=e.strength.length%2?'B':'A';
  const week=Math.min(4,e.weeks),reps:Record<string,number>={};
@@ -57,7 +58,10 @@ export function trainingPlan(profile:Answers,a:Answers,history:Session[],feedbac
  const support=a.support;
  const pushId=push==='wall'&&support==='none'||push==='incline'&&support!=='counter'?'':'push-'+push;
  const legs=profile.legs==='free'?'squat-free':support==='chair'?'squat-chair':'calf';
- const ids=[legs,...(pushId?[pushId]:[]),...(floor?['bridge','back-squeeze',variant==='A'?'bird-dog':'heel-slide']:['back-squeeze']), 'calf'].filter((id,i,arr)=>arr.indexOf(id)===i);
+ const front=variant==='A'?(skills.dynamic==='dead-bug'?'dead-bug':'heel-slide'):['knee','full'].includes(skills.plank)?'plank-'+skills.plank:'bird-dog';
+ const side=['knee','full'].includes(skills.side)?'side-plank-'+skills.side:front==='bird-dog'?'heel-slide':'bird-dog';
+ const selected=[legs,...(pushId?[pushId]:[]),...(floor?['bridge','back-squeeze',front,side]:['back-squeeze','calf'])];
+ const ids=selected.map(id=>swaps[id]&&alternatives(id,profile,a,skills).includes(swaps[id])?swaps[id]:id).filter((id,i,arr)=>arr.indexOf(id)===i);
  if(variant==='B')ids.reverse();
  const capable=profile.legs==='free'&&profile.push!=='unknown'&&profile.pushReps!=='unknown'&&floor&&!!pushId;
  const mixed=both&&capable&&available>=30&&cardioComfort>=10;
@@ -69,10 +73,14 @@ export function trainingPlan(profile:Answers,a:Answers,history:Session[],feedbac
  const steps:Step[]=warm===120?[step('march',90,'warmup'),step('shoulder-roll',30,'warmup',4)]:[step('march',180,'warmup'),step('shoulder-roll',60,'warmup',8),step(legs,30,'warmup',2),step(pushId||'back-squeeze',30,'warmup',2)];
  for(let set=0;set<sets;set++)for(const id of ids){
   const group=moves[id].group,hard=(feedback?.[group]?.at(-1)?.effort??0)>=8;
-  let n=group==='push'?Math.max(2,Math.min(6,(Number(profile.pushReps)||3)-2)):id==='bird-dog'||id==='heel-slide'?6:8;
+  let n=group==='push'?Math.max(2,Math.min(6,(Number(profile.pushReps)||3)-2)):['bird-dog','heel-slide','dead-bug'].includes(id)?6:8;
   if(e.stage===1&&!hard)n+=group==='push'?1:2;
   if(hard)n=Math.max(2,n-2);
-  reps[id]=n;steps.push(step(id,workSeconds,'work',n,'inside'),{title:bi('استراحت بین ست‌ها','Rest between sets'),seconds:restSeconds,phase:'work',location:'inside'});
+  const seconds=held(id)?(sideHold(id)?25:15):workSeconds;
+  const movement=step(id,seconds,'work',held(id)?undefined:n,'inside');
+  if(held(id))movement.note=sideHold(id)?bi('۱۰ ثانیه هر سمت؛ ۵ ثانیه برای تغییر سمت. با افت فرم زودتر استراحت کن.','10 seconds per side; 5 seconds to switch. Rest early if form changes.'):bi('۱۵ ثانیه با تنفس طبیعی؛ با افت فرم زودتر استراحت کن.','15 seconds with normal breathing; rest early if form changes.');
+  else reps[id]=n;
+  steps.push(movement,{title:bi('استراحت بین ست‌ها','Rest between sets'),seconds:restSeconds+workSeconds-seconds,phase:'work',location:'inside'});
  }
  steps.push(step('cooldown',cool,'cooldown',undefined,'inside'));
  if(mixed){const spare=Math.min(cardioComfort,Math.floor(available-steps.reduce((n,x)=>n+x.seconds,0)/60),20);steps.push(...cardio(spare,true));}

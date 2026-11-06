@@ -95,6 +95,8 @@ export function validate(value: unknown): State {
   if(s.coach?.flow?.kind==='stop'&&s.coach.flow.target==='active'&&(!s.active||!s.coach.flow.post))return fail();
   const a=s.active;
   if(a!==null){if(!obj(a)||!num(a.started,0,1e14)||!num(a.elapsed,0,1e7)||typeof a.paused!=='boolean'||!Array.isArray(a.steps)||a.steps.length>300||!a.steps.every(x=>obj(x)&&text(x.title)&&num(x.seconds,1,3600))||!Array.isArray(a.skipped)||!a.skipped.every(x=>Number.isInteger(x)&&x>=0&&x<a.steps.length)||!obj(a.decision)||!modes.includes(a.decision.mode)||!num(a.decision.minutes,0,300)||!text(a.decision.reason)||!['stop','rest','return','reduce','hold','progress'].includes(a.decision.state)||(a.skippedSeconds!==undefined&&!num(a.skippedSeconds,0,1e7)))return fail();}
+  if(a?.endedAt!==undefined&&(!num(a.endedAt,0,1e14)||!a.paused||!str(a.id)))return fail();
+  if(s.sessions.some(x=>x.manual!==undefined&&typeof x.manual!=='boolean'))return fail();
   if(a&&!validProgram(a.program))return fail();
   if(a?.stepSeconds&&(!obj(a.stepSeconds)||Object.entries(a.stepSeconds).some(([i,n])=>!/^\d+$/.test(i)||!a.steps[Number(i)]||!num(n,0,a.steps[Number(i)].seconds))))return fail();
   if(a?.transitions&&(!Array.isArray(a.transitions)||a.transitions.some(i=>!Number.isInteger(i)||i<0||i>=a.steps.length||!a.steps[i].transition)))return fail();

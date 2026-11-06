@@ -1,17 +1,11 @@
-# FitYar 1.3 preview / پیش‌نمایش فیت‌یار ۱.۳
+# FitYar 1.4 preview / پیش‌نمایش فیت‌یار ۱.۴
 
-فارسی: توقف نیمه‌راه دیگر به‌تنهایی کم‌توانی محسوب نمی‌شود. علت توقف (کمبود وقت، آزمایش اپ، انصراف، خستگی یا درد) ثبت می‌شود و سابقه قدیمی نامعلوم سؤال روشن‌کننده دارد. می‌توانید ثبت آزمایشی را اصلاح کنید؛ تاریخچه پاک یا کامل‌شده جعل نمی‌شود.
+فارسی: ثبت جلسه با شناسه ثابت و وضعیت پایان‌یافته در انتظار بازخورد، یک دکمه نهایی «ثبت جلسه»، نوشتن قطعی قبل از موفقیت، رسید ذخیره و سابقه خوانا اصلاح شد. ارتقا جلسه معلق قبلی را نگه می‌دارد. تکرار تأیید رکورد تکراری نمی‌سازد و خطای ذخیره پنهان نمی‌شود. ثبت دستی فقط برای فعالیت واقعاً انجام‌شده و با برچسب دستی/تأییدنشده است.
 
-English: Partial completion alone no longer means low ability. Stops distinguish time, testing, accidental exits, fatigue and pain. Unknown legacy stops get a clarification. Existing records can be marked test-only without deleting history or inventing completed workouts.
+English: Workout completion now uses a stable ID, persisted pending feedback, one final Save session action, write-before-success storage, a saved receipt and readable history. Upgrade preserves pending workouts. Duplicate confirmation is idempotent and storage errors stay visible. Manual missing-workout reports are clearly labeled and do not invent completed plans.
 
-فارسی: سقف ارثی زمان برنامه قبلی حذف شد. قالب‌های قدرتی A/B با حرکت، ست، تکرار و استراحت مشخص، متناسب توان و وقت اجرا می‌شوند؛ نمونه توان شنا زانو/معمولی و اسکوات با وقت ۲۰–۳۰ دقیقه، برنامه اصلی ۲۰–۲۵ دقیقه دارد. پیاده‌روی، راه‌رفتن/دویدن و برنامه ترکیبی طبق توان و سابقه تنظیم می‌شوند. پیشرفت به فعالیت مؤثر، گذشت زمان و ریکاوری وابسته است.
+فارسی: عضلات هدف و تمرکز سینه/میان‌تنه در قالب متوازن روشن شده؛ ددباگ و پلانک جلو/پهلو در سطح زانو و کامل، توان مستقل، روش حرکت، مقدار دقیق و جایگزین مناسب اضافه شدند. قالب‌ها پا، پشت، هوازی و ریکاوری را حفظ می‌کنند؛ کاهش چربی موضعی وعده داده نمی‌شود.
 
-English: Removed the inherited previous-plan duration ceiling. A/B strength templates specify movements, sets, repetitions and rests according to ability and availability; capable knee/regular push-up and squat examples with 20–30 minutes produce 20–25-minute main sessions. Walking, walk–run and mixed sessions use reported ability and history. Progress depends on meaningful work, elapsed weeks and recovery.
+English: Muscle targets and chest/core focus are visible within balanced templates. Added dead bug and knee/full front/side planks, independent ability checks, instructions, precise doses and suitable substitutions. Legs, back, aerobic work and recovery remain; no spot-fat-loss promises.
 
-فارسی: فعالیت ثبت‌شده در مرحله و گروه عضلانی، نه زمان برنامه‌ریزی‌شده، مبنای ریکاوری است. تایمر تعداد تکرار یا فرم واقعی را تشخیص نمی‌دهد. روز ریکاوری نام و دلیل روشن و توضیح جلسه اصلی بعدی دارد. درد و علائم خطر همچنان مانع شروع هستند. نصب روی نسخه قبلی با همان امضا و داده محلی انجام می‌شود؛ اپ پیش‌نمایش و بدون ادعای مربی یا درمانگر واقعی است.
-
-English: Recorded phase/group/time exposure, not planned duration, informs recovery. The timer does not detect physical repetitions or form. Recovery days have explicit labels, reasons and next-session guidance. Pain and danger symptoms retain their gates. This remains an offline preview, without claims to be a real trainer or clinician.
-
-[Regression, reviewed examples, sources and validation / رگرسیون، نمونه‌ها، منابع و بررسی](https://github.com/MohammadAmirHekmati/fityar/blob/main/docs/V4-ACCEPTANCE.md)
-
-Verified / تأییدشده: 54 tests, typecheck, lint, signed upgrade and focused Android acceptance / ۵۴ تست، بررسی نوع و lint، ارتقای امضاشده و پذیرش هدفمند اندروید.
+[Evidence, sources and validation / شواهد، منابع و بررسی](https://github.com/MohammadAmirHekmati/fityar/blob/main/docs/V5-ACCEPTANCE.md)

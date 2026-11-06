@@ -3,12 +3,19 @@ import {measuredLoad} from './trainingHistory.ts';
 import {bi, dayKey, elapsed, actualSeconds} from './core.ts';
 import type {Session, Step, Decision, Text, Active, Program, MuscleGroup, StopReason} from './core';
 export type Answers=Record<string,string>;
-export type FlowKind='intake'|'daily'|'post'|'recovery'|'adapt'|'stop';
-export interface Flow {post?:Answers;kind:FlowKind;cursor:number;answers:Answers;baseline?:Answers;target?:string;date:string}
-export interface CoachState {profile:Answers;flow?:Flow;draft?:Flow;ready?:{date:string;answers:Answers};feedback?:Record<string,{effort:number;pain:boolean;at:number}[]>}
+export type FlowKind='intake'|'daily'|'post'|'recovery'|'adapt'|'stop'|'skills';
+export interface Flow {partial?:boolean;sessionId?:string;post?:Answers;kind:FlowKind;cursor:number;answers:Answers;baseline?:Answers;target?:string;date:string}
+export interface CoachState {abilities?:Answers;swaps?:{date:string;items:Record<string,string>};lastSaved?:string;profile:Answers;flow?:Flow;draft?:Flow;ready?:{date:string;answers:Answers};feedback?:Record<string,{effort:number;pain:boolean;at:number}[]>}
 export interface Question {key:string;title:Text;hint?:Text;options:{id:string;label:Text}[]}
 const q=(key:string,fa:string,en:string,options:[string,string,string][],hint?:Text):Question=>({key,title:bi(fa,en),options:options.map(([id,f,e])=>({id,label:bi(f,e)})),hint});
 export const questions:Record<FlowKind,Question[]>={
+ skills:[
+ q('dynamic','کدام حرکت شکم را قبلاً راحت و بدون درد انجام داده‌ای؟','Which abdominal movement have you comfortably performed before?',[
+ ['basic','هنوز مطمئن نیستم؛ از پایه شروع کنیم','Unsure; start with basics'],['dead-bug','ددباگ، ۶ تکرار کل با کمر ثابت','Dead bug, 6 total controlled reps']]),
+ q('plank','کدام پلانک جلو را ۲۰ ثانیه با تنفس طبیعی نگه داشته‌ای؟','Which front plank have you held for 20 seconds with normal breathing?',[
+ ['none','نمی‌دانم یا هنوز راحت نیست','Unsure or not comfortable'],['knee','روی زانو','On knees'],['full','روی پنجه با بدن صاف','On toes, body aligned']]),
+ q('side','کدام سایدپلانک را هر سمت ۲۰ ثانیه راحت نگه داشته‌ای؟','Which side plank have you comfortably held for 20 seconds per side?',[
+ ['none','نمی‌دانم یا هنوز راحت نیست','Unsure or not comfortable'],['knee','با زانو خم','Bent knees'],['full','با پاهای صاف','Straight legs']],bi('برای جواب‌دادن تست نکن؛ تجربه قبلی کافی است. توان شنا به پلانک تعمیم داده نمی‌شود.','Do not test now; use prior experience. Push-up ability does not establish plank ability.'))],
  intake:[
  q('adult','۱۸ سال یا بیشتر داری؟','Are you 18 or older?',[['yes','بله','Yes'],['no','نه','No']],bi('همراه آفلاین، بدون حساب و هوش مصنوعی. پاسخ‌ها فقط روی دستگاه می‌مانند.','Offline, without accounts or AI. Answers stay on this device.')),
  q('restriction','محدودیت پزشکی یا آسیب فعالی داری؟','Do you have an active injury or medical restriction?',[['no','نه','No'],['yes','بله، یا مطمئن نیستم','Yes, or I am unsure']]),
@@ -39,7 +46,7 @@ export const questions:Record<FlowKind,Question[]>={
  ['none','هیچ تمرینی انجام ندادم','No exercise'],['warmup','فقط گرم‌کردن؛ وارد ست‌های اصلی نشدم','Warm-up only; no main sets'],['main','بخشی از تمرین اصلی را انجام دادم','Some main work'],['unknown','دقیق یادم نیست','I do not remember']])],
  adapt:[q('reason','چه چیزی امروز مناسب نیست؟','What does not suit you today?',[['pain','درد یا ناخوشی','Pain or illness'],['time','وقت کمتر دارم','Less time'],['equipment','تکیه‌گاه ندارم','No support available'],['unfamiliar','حرکت‌ها را نمی‌شناسم','Unfamiliar movements']])]
 };
-export const flowQuestions=(f:Flow)=>f.kind==='stop'&&(f.target==='active'||f.answers.reason==='test')?questions.stop.slice(0,1):questions[f.kind];
+export const flowQuestions=(f:Flow)=>f.kind==='post'&&f.partial?[...questions.post,questions.stop[0]]:f.kind==='stop'&&(f.target==='active'||f.answers.reason==='test')?questions.stop.slice(0,1):questions[f.kind];
 export const newFlow=(kind:FlowKind,target?:string):Flow=>({kind,cursor:0,answers:{},date:dayKey(),...(target?{target}:{})});
 export const validAnswer=(q:Question,value:string)=>q.key==='minutes'?/^\d+$/.test(value)&&Number(value)>=5&&Number(value)<=120:q.options.some(o=>o.id===value);
 export const flowChanged=(f:Flow)=>JSON.stringify(Object.entries(f.answers).sort())!==JSON.stringify(Object.entries(f.baseline??{}).sort());
@@ -56,8 +63,13 @@ export function validateCoach(c:unknown):boolean {
  if(!c||typeof c!=='object')return false;
  const x=c as CoachState,answers=(a:unknown)=>!!a&&typeof a==='object'&&!Array.isArray(a)&&Object.entries(a).length<=30&&Object.values(a).every(v=>typeof v==='string'&&v.length<100);
  if(!answers(x.profile))return false;
- const validAnswers=(kind:FlowKind,a:Answers)=>Object.entries(a).every(([key,value])=>questions[kind].some(q=>q.key===key&&validAnswer(q,value)));
+ const validAnswers=(kind:FlowKind,a:Answers)=>Object.entries(a).every(([key,value])=>[...questions[kind],...(kind==='post'?[questions.stop[0]]:[])].some(q=>q.key===key&&validAnswer(q,value)));
  if(!validAnswers('intake',x.profile))return false;
+ if(x.abilities&&(!answers(x.abilities)||!validAnswers('skills',x.abilities)))return false;
+ if(x.lastSaved!==undefined&&typeof x.lastSaved!=='string')return false;
+ if(x.swaps&&(!x.swaps.items||typeof x.swaps.date!=='string'||Object.values(x.swaps.items).some(v=>typeof v!=='string'||!movements[v])))return false;
+ if(x.flow?.partial!==undefined&&typeof x.flow.partial!=='boolean')return false;
+ if(x.flow?.sessionId!==undefined&&typeof x.flow.sessionId!=='string')return false;
  if(x.flow){const f=x.flow;if(!questions[f.kind]||!Number.isInteger(f.cursor)||f.cursor<0||f.cursor>flowQuestions(f).length||!answers(f.answers)||typeof f.date!=='string'||(f.target!==undefined&&typeof f.target!=='string'))return false;}
  if(x.flow&&(!validAnswers(x.flow.kind,x.flow.answers)||flowQuestions(x.flow).slice(0,x.flow.cursor).some(q=>x.flow!.answers[q.key]===undefined)))return false;
  if(x.flow?.post&&(!answers(x.flow.post)||!completeAnswers('post',x.flow.post)))return false;
@@ -73,24 +85,29 @@ export function performedGroups(active:Active,now:number):Movement['group'][] {
 }
 export function recordSession(active:Active,answers:Answers,at:number,stopReason?:StopReason):Session {
  const seconds=actualSeconds(active,at),duration=active.steps.reduce((n,x)=>n+x.seconds,0);
- return {id:String(at),date:dayKey(new Date(at)),at,mode:active.decision.mode,minutes:Math.round(seconds/6)/10,planned:duration/60,
+ return {id:active.id??`legacy-${active.started}`,date:dayKey(new Date(at)),at,mode:active.decision.mode,minutes:Math.round(seconds/6)/10,planned:duration/60,
  effort:Number(answers.effort),pain:answers.pain==='yes'||stopReason==='pain',talk:answers.talk==='yes',
  status:active.skipped.length||elapsed(active,at)<duration?'partial':'complete',reason:active.decision.reason,before:active.before,
  stopReason,activity:stopReason==='test'?'none':undefined,load:performedLoad(active,at),program:active.program};
 }
-export function choosePlan(profile:Answers,a:Answers,history:Session[],feedback:CoachState['feedback']={},now=Date.now()):CoachPlan {
+export function choosePlan(profile:Answers,a:Answers,history:Session[],feedback:CoachState['feedback']={},now=Date.now(),abilities:Answers={},swaps:Record<string,string>={}):CoachPlan {
  const stop=(reason:Text,state:Decision['state']='rest'):CoachPlan=>({decision:{state,reason,mode:'home',minutes:0},steps:[],reps:{}});
  if(a.symptoms==='yes')return stop(bi('تمرین نکن. این علائم نیاز به بررسی فوری دارند؛ با اورژانس محلی تماس بگیر.','Do not exercise. These symptoms need urgent assessment; contact local emergency services.'),'stop');
  if(profile.adult!=='yes'||profile.restriction!=='no')return stop(bi('این برنامه عمومی برای بزرگسال بدون محدودیت فعال است. درباره فعالیت مناسب با متخصص هماهنگ کن.','This general program is for adults without active restrictions. Discuss suitable activity with a professional.'));
  if(!completeAnswers('intake',profile)||!completeAnswers('daily',a))return stop(bi('ابتدا سؤال‌های باقی‌مانده را پاسخ بده.','Answer the remaining questions first.'));
  if(a.pain!=='no')return stop(bi('امروز با درد یا بیماری تمرین نکن. اگر ادامه داشت، ارزیابی بگیر.','Do not train through pain or illness. Seek assessment if it persists.'));
- return trainingPlan(profile,a,history,feedback,movements,now);
+ return trainingPlan(profile,a,history,feedback,movements,now,abilities,swaps);
 }
 
 export interface Movement {name:Text;group:MuscleGroup;start:Text;end:Text;avoid:Text}
 const m=(name:Text,group:Movement['group'],start:Text,end:Text,avoid:Text):Movement=>({name,group,start,end,avoid});
 export const performedLoad=(active:Active,now:number)=>measuredLoad(active,movements,now);
 export const movements:Record<string,Movement>={
+ 'dead-bug':m(bi('ددباگ؛ دست و پای مخالف خوابیده','Dead bug'),'core',bi('به پشت، دست‌ها رو به سقف؛ ران و زانو خم، کمر ثابت.','Lie on your back, arms up, hips and knees bent; keep the low back steady.'),bi('دست و پای مخالف را فقط تا جایی دراز کن که کمر ثابت بماند؛ برگرد و سمت را عوض کن.','Reach opposite arm and leg only as far as you can keep your back steady; return and alternate.'),bi('کمر گود نشود؛ دامنه را کم کن و نفس را حبس نکن.','Avoid arching; shorten the reach and keep breathing.')),
+ 'plank-knee':m(bi('پلانک ساعد روی زانو','Knee forearm plank'),'core',bi('ساعد روی زمین، آرنج زیر شانه؛ زانو روی زیرانداز.','Forearms down, elbows below shoulders; knees on a mat.'),bi('از سر تا زانو یک خط نگه دار؛ شکم آرام سفت و تنفس طبیعی.','Keep head to knees aligned, gently brace and breathe normally.'),bi('با افت فرم زودتر استراحت کن؛ کمر گود نشود.','Rest early if form changes; do not let the back sag.')),
+ 'plank-full':m(bi('پلانک ساعد کامل','Full forearm plank'),'core',bi('ساعد و پنجه روی زمین؛ آرنج زیر شانه.','Forearms and toes down; elbows below shoulders.'),bi('بدن از سر تا پاشنه هم‌راستا؛ با تنفس طبیعی نگه دار.','Hold head to heels aligned while breathing naturally.'),bi('لگن بالا نرود یا نیفتد؛ با درد توقف کن.','Avoid lifting or dropping hips; stop with pain.')),
+ 'side-plank-knee':m(bi('سایدپلانک زانو؛ هر دو سمت','Knee side plank; both sides'),'core',bi('به پهلو، زانوها خم؛ آرنج زیر شانه و ساعد روی زمین.','Lie on your side with bent knees; elbow below shoulder, forearm down.'),bi('لگن را بلند کن تا شانه تا زانو هم‌راستا شود؛ آرام پایین بیاور و سمت دیگر را انجام بده.','Lift hips to align shoulder to knee; lower gently, then switch sides.'),bi('روی گردن فشار نده؛ شانه ثابت، تنفس طبیعی.','Keep shoulder supported, neck relaxed and breathing normal.')),
+ 'side-plank-full':m(bi('سایدپلانک کامل؛ هر دو سمت','Full side plank; both sides'),'core',bi('به پهلو روی ساعد، پاها صاف و کمی جلو و عقب برای تعادل.','Side lying on forearm, legs straight and feet staggered for balance.'),bi('لگن را تا هم‌راستایی بدن بلند کن؛ آرام پایین بیاور و سمت را عوض کن.','Lift hips to align your body; lower with control and switch sides.'),bi('بدن نچرخد؛ فقط با سابقه راحت هر دو سمت، بدون درد.','Do not rotate; use only with comfortable pain-free experience on both sides.')),
  'back-squeeze':m(bi('جمع‌کردن آرام کتف‌ها','Gentle shoulder-blade squeeze'),'back',bi('صاف بایست، آرنج‌ها کنار بدن و کمی خم؛ شانه‌ها پایین.','Stand tall, elbows beside the body and slightly bent; shoulders down.'),bi('کتف‌ها را آرام به هم نزدیک کن، ۲ ثانیه نگه دار و رها کن. این تمرین کنترل پشت است، نه جایگزین پارویی با مقاومت.','Gently bring shoulder blades together, hold 2 seconds, then release. This trains back control, not a replacement for resisted rows.'),bi('کمر را گود نکن؛ گردن و شانه را فشار نده.','Do not arch the back or strain neck and shoulders.')),
  jog:m(bi('دویدن خیلی آرام','Very easy jog'),'cardio',bi('بعد از راه رفتن، در مسیر امن و هموار شروع کن.','After walking, start on a safe, level route.'),bi('گام کوتاه و آرام؛ اگر جمله کامل سخت شد راه برو.','Use short, easy strides; walk if full sentences become difficult.'),bi('برای سرعت تلاش نکن؛ با درد یا سرگیجه توقف کن.','Do not chase speed; stop with pain or dizziness.')),
  'push-wall':m(bi('شنا روی دیوار','Wall push-up'),'push',bi('رو به دیوار، کف دست‌ها هم‌ارتفاع شانه، پاها کمی عقب.','Face a wall, hands at shoulder height, feet a little back.'),bi('آرنج‌ها را خم کن، بدن یک‌تکه به دیوار نزدیک شود؛ آرام برگرد.','Bend elbows to bring your straight body toward the wall; press back gently.'),bi('کمر را گود نکن؛ دیوار خشک و دست‌ها ثابت.','Avoid arching your back; keep hands on a dry, stable wall.')),

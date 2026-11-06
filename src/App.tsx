@@ -1,3 +1,4 @@
+import {createDurableStore} from './sessionLifecycle';
 import appConfig from '../app.json';
 import ReminderSettings from './ReminderSettings';
 import FoodGuide from "./FoodGuide";
@@ -50,11 +51,12 @@ import {syncWidget,syncAudio,audioMuted} from './widget';
 export default function App(){return <SafeAreaProvider><Main/></SafeAreaProvider>;}
 function Main() {
   const insets=useSafeAreaInsets();
-  const [s, setS] = useState<State>(() => load());
+  const [store]=useState(()=>createDurableStore(load(),save));
+  const [s,renderState]=useState<State>(store.get);
   const scrollRef=useRef<React.ComponentRef<typeof ScrollView>>(null);
   const resetScroll=useCallback(()=>scrollRef.current?.scrollTo({y:0,animated:false}),[]);
-  const latestState=useRef(s);
-  useEffect(()=>{latestState.current=s;},[s]);
+
+
   const [page, setPage] = useState("today"),
     [tick, setTick] = useState(() => Date.now()),
     [notice, setNotice] = useState("");
@@ -102,16 +104,14 @@ function Main() {
         accent: "#b9df7b",
         border: "#d8e2d5",
       };
-  const update = (patch: Partial<State>) => setS((v) => ({ ...v, ...patch }));
-  useEffect(() => {
+  const update = useCallback((change:Partial<State>|((old:State)=>State)):boolean => {
     try {
-      save(s);
+      const next=store.apply(change);
+      renderState(next);return true;
     } catch {
-      queueMicrotask(() => setNotice(
-        s.lang === "fa" ? "ذخیره انجام نشد؛ بکاپ بگیر." : "Saving failed; export a backup.",
-      ));
+      setNotice(store.get().lang==='fa'?'ذخیره انجام نشد. جلسه قبلی حفظ شده؛ دوباره ثبت را بزن.':'Saving failed. Your pending session is retained; retry saving.');return false;
     }
-  }, [s]);
+  },[store]);
   useEffect(() => {
     syncWidget(s);
     syncAudio(s);
@@ -122,7 +122,7 @@ function Main() {
     );
   }, [s]);
   useEffect(()=>{
-    const open=(start=false)=>{if(start)setS(old=>quickStart(old));setPage('today');};
+    const open=(start=false)=>{if(start)update(old=>quickStart(old));setPage('today');};
     const link=Linking.addEventListener('url',e=>{if(e.url.startsWith('fityar://today'))open(e.url.includes('start=1'));});
     Linking.getInitialURL().then(url=>{if(url?.startsWith('fityar://today'))open(url.includes('start=1'));});
     const stop=listenResponses(response=>{
@@ -130,23 +130,23 @@ function Main() {
       const action=response.actionIdentifier==='snooze'?'snooze':response.actionIdentifier==='skip'?'skip':'start';
       const date=String(request.content.data?.date??dayKey());
       const id=`${request.identifier}-${response.notification.date}-${action}`;
-      setS(old=>{const next=reminderAction(old,action,id,date);return response.actionIdentifier==='start'&&next!==old?quickStart(next):next;});
+      update(old=>{const next=reminderAction(old,action,id,date);return response.actionIdentifier==='start'&&next!==old?quickStart(next):next;});
       open();clearResponse().catch(()=>{});
     });
     return()=>{link.remove();stop();};
-  },[]);
+  },[update]);
   useEffect(() => {
     const id = setInterval(() => setTick(Date.now()), 1000);
-    const reflectMute=()=>{audioMuted().then(muted=>{if(muted)setS(old=>({...old,audio:{...(old.audio??{volume:60,vibrate:false}),enabled:false}}));}).catch(()=>{});};
+    const reflectMute=()=>{audioMuted().then(muted=>{if(muted)update(old=>({...old,audio:{...(old.audio??{volume:60,vibrate:false}),enabled:false}}));}).catch(()=>{});};
     reflectMute();
     const focus=AppState.addEventListener('focus',reflectMute);
-    const sub = AppState.addEventListener("change", (state) => {setTick(Date.now());if(state==='active'){syncWidget(latestState.current);syncAudio(latestState.current);syncNotifications(latestState.current).catch(()=>{});}});
+    const sub = AppState.addEventListener("change", (state) => {setTick(Date.now());if(state==='active'){syncWidget(store.get());syncAudio(store.get());syncNotifications(store.get()).catch(()=>{});}});
     return () => {
       clearInterval(id);
       sub.remove();
       focus.remove();
     };
-  }, []);
+  }, [store,update]);
   const d = decide(check, s.sessions, tick),
     active = s.active,
     seconds = active ? elapsed(active, tick) : 0,
@@ -367,7 +367,7 @@ function Main() {
           "داده فعلی جایگزین می‌شود. ابتدا بکاپ بگیر.",
           "Current data will be replaced. Export a backup first.",
         ),
-        () => setS(restored),
+        () => update(()=>restored),
       );
     } catch {
       setNotice(
@@ -1236,7 +1236,7 @@ function Main() {
                             "بدون بکاپ برگشت‌پذیر نیست.",
                             "Cannot be undone without a backup.",
                           ),
-                          () => setS({ ...initial, lang: s.lang }),
+                          () => update(()=>({ ...initial, lang: s.lang })),
                         ),
                       true,
                     )}

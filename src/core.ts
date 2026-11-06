@@ -11,6 +11,7 @@ export type MuscleGroup = 'push'|'legs'|'core'|'back'|'cardio';
 export interface Workload {warmup:number;work:number;cooldown:number;rest:number;groups:Record<MuscleGroup,number>;source:'timer'}
 export interface Program {id:string;week:number;kind:'strength'|'cardio'|'mixed'|'recovery'|'short'}
 export interface Session {
+  manual?:boolean;
   stopReason?:StopReason;
   activity?:'none'|'warmup'|'main'|'unknown';
   load?:Workload;
@@ -251,6 +252,7 @@ export function plan(d: Decision, ratings:Ratings = {}): Step[] {
   return steps;
 }
 export interface Active {
+  endedAt?:number;
   stepSeconds?:Record<number,number>;
   program?:Program;
   id?:string;

@@ -1,3 +1,4 @@
+import {recoverFeedback} from './sessionLifecycle';
 import * as SQLite from "expo-sqlite";
 import {initial, State, validate} from "./model";
 export {initial, State, validate} from "./model";
@@ -11,7 +12,8 @@ export function load(): State {
     "SELECT data FROM state WHERE id=1",
   );
   if (!row) return initial;
-  return validate(JSON.parse(row.data));
+  const state=recoverFeedback(validate(JSON.parse(row.data)));
+  return state;
 }
 export function save(state: State) {
   db.runSync(

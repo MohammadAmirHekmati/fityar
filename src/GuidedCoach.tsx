@@ -1,3 +1,6 @@
+import {targetText,alternatives,sideHold,noSpotLoss,level} from './exerciseInfo';
+import SessionHistory from './SessionHistory';
+import {beginFeedback,commitFeedback} from './sessionLifecycle';
 import {clarificationNeeded,recoveryNeeded,trainingEvidence,correctSession} from './trainingHistory';
 import type {StopReason,Session} from './core';
 import AudioControls from './AudioControls';
@@ -5,14 +8,14 @@ import React,{useEffect,useState} from 'react';
 import {View,Text,Pressable,BackHandler,Alert,TextInput} from 'react-native';
 import type {State} from './model';
 import {dayKey,elapsed,names,numericText} from './core';
-import {answerFlow,choosePlan,completeAnswers,movements,newFlow,flowQuestions,performedGroups,recordSession,validAnswer,flowChanged,leaveFlow} from './coach';
+import {answerFlow,choosePlan,completeAnswers,movements,newFlow,flowQuestions,validAnswer,flowChanged,leaveFlow} from './coach';
 import type {CoachState,FlowKind} from './coach';
 import MovementView from './MovementView';
 const emptyCoach:CoachState={profile:{}};
-type Props={s:State;update:(patch:Partial<State>)=>void;library?:boolean;onNavigate?:()=>void};
+type Props={s:State;update:(patch:Partial<State>|((old:State)=>State))=>boolean;library?:boolean;onNavigate?:()=>void};
 export default function Coach({s,update,library=false,onNavigate}:Props){
  const [now,setNow]=useState(()=>Date.now()),[selected,select]=useState(''),[expanded,expand]=useState(false);
- const [custom,setCustom]=useState('');
+ const [custom,setCustom]=useState(''),[pane,setPane]=useState<'history'|'manual'|''>(''),[preview,setPreview]=useState(''),[swap,setSwap]=useState(''),[swapReason,setSwapReason]=useState('');
  useEffect(()=>{const timer=setInterval(()=>setNow(Date.now()),1000);return()=>clearInterval(timer);},[]);
  useEffect(()=>{onNavigate?.();},[selected,onNavigate]);
  const c:CoachState=s.coach??emptyCoach,f=c.flow,fa=s.lang==='fa',t=(a:string,b:string)=>fa?a:b;
@@ -28,15 +31,10 @@ export default function Coach({s,update,library=false,onNavigate}:Props){
  const clarification=clarificationNeeded(s.sessions,now),recovery=recoveryNeeded(s.sessions,now);
  const painRecord=trainingEvidence(s.sessions,now).unresolvedPain;
  const last=s.sessions.filter(x=>x.status!=='missed').sort((a,b)=>b.at-a.at)[0];
- const saveResult=(answers:Record<string,string>,stopReason?:StopReason)=>{
-  if(!s.active)return;
-  const record=recordSession(s.active,answers,now,stopReason),feedback={...c.feedback};
-  if(stopReason!=='test')for(const g of performedGroups(s.active,now))feedback[g]=[...(feedback[g]??[]),{at:now,effort:answers.group===g||stopReason==='fatigue'?8:record.effort,pain:record.pain}];
-  update({sessions:[record,...s.sessions],active:null,coach:{...c,flow:undefined,draft:c.draft?.kind==='post'||c.draft?.kind==='stop'?undefined:c.draft,ready:undefined,feedback}});
- };
  const finishFlow=()=>{
   if(!f)return;
   const draft=c.draft?.kind===f.kind?undefined:c.draft;
+  if(f.kind==='skills'){patch({abilities:f.answers,flow:undefined,draft,swaps:undefined});return;}
   if(f.kind==='intake'){update({onboard:true,coach:{...c,profile:f.answers,flow:undefined,draft,ready:undefined}});return;}
   if(f.kind==='daily'){patch({ready:{date:dayKey(),answers:f.answers},flow:undefined,draft});return;}
   if(f.kind==='recovery'){update({sessions:s.sessions.map(x=>x.id===f.target?{...x,recovery:Number(f.answers.recovery)}:x),coach:{...c,flow:undefined,ready:undefined}});return;}
@@ -45,27 +43,29 @@ export default function Coach({s,update,library=false,onNavigate}:Props){
    if(reason==='pain')a.pain='yes';if(reason==='time')a.minutes='5';if(reason==='equipment')a.support='none';if(reason==='unfamiliar'){a.energy='low';a.place='inside';}
    patch({ready:{date:dayKey(),answers:a},flow:undefined});return;
   }
-  if(f.kind==='post'&&s.active){
-   const duration=s.active.steps.reduce((n,x)=>n+x.seconds,0);
-   if(s.active.skipped.length||elapsed(s.active,now)<duration){patch({flow:{...newFlow('stop','active'),post:f.answers}});return;}
-   saveResult(f.answers);return;
+  if(f.kind==='post'){
+   update(old=>commitFeedback(old,f.sessionId??s.active?.id??'',f.answers));return;
   }
   if(f.kind==='stop'){
    const reason=f.answers.reason as StopReason;
-   if(f.target==='active'&&s.active&&f.post){saveResult(f.post,reason);return;}
+   if(f.target==='active'){update(old=>beginFeedback(old));return;}
    update({sessions:s.sessions.map(x=>x.id===f.target?correctSession(x,reason,f.answers.activity as Session['activity']):x),
     coach:{...c,flow:undefined,draft,feedback:reason==='test'?Object.fromEntries(Object.entries(c.feedback??{}).map(([g,rows])=>[g,rows.filter(row=>row.at!==s.sessions.find(x=>x.id===f.target)?.at)])):c.feedback}});
   }
  };
- if(library)return box(<>{txt(t('کتابخانه حرکت‌ها','Movement library'),26)}{txt(t('هر حرکت روش و تصویر خودش را دارد. توان یک حرکت به بقیه تعمیم داده نمی‌شود.','Each movement has its own instructions and images. Ability in one does not imply ability in others.'),15,muted)}{selected?<>{button(t('بازگشت به فهرست','Back to list'),()=>select(''),true)}{txt(movements[selected].name[s.lang],24)}<MovementView id={selected} lang={s.lang} ink={ink} details/></>:Object.entries(movements).map(([id,m])=><View key={id}>{button(m.name[s.lang],()=>select(id),true)}</View>)}</>);
+ if(pane)return <SessionHistory s={s} update={update} manual={pane==='manual'} close={()=>setPane('')}/>;
+ const receipt=c.lastSaved?s.sessions.find(x=>x.id===c.lastSaved):undefined;
+ if(!library&&!f&&!s.active&&receipt)return box(<>{txt(t('جلسه ذخیره شد','Workout saved'),27)}{txt(receipt.date+' · '+receipt.minutes+' '+t('دقیقه واقعی','actual minutes'))}{!receipt.manual&&txt(t('زمان برنامه: ','Planned time: ')+receipt.planned+' '+t('دقیقه','minutes'))}{receipt.load&&txt(t('حرکت اصلی ثبت‌شده: ','Recorded main movement: ')+Math.round(receipt.load.work)+' '+t('ثانیه؛ اندازه‌گیری با تایمر، نه شمارش تکرار','seconds; timer exposure, not a rep count'))}{txt(receipt.manual?t('ثبت دستی؛ تکمیل برنامه تأیید نشده','Manual entry; completion unverified'):receipt.status==='complete'?t('برنامه کامل شد','Plan completed'):t('مقدار انجام‌شده ثبت شد؛ جلسه نیمه‌تمام است','Performed activity saved; this session is partial'))}{txt(t('قدم بعد: استراحت و بررسی ریکاوری پیش از تمرین بعدی.','Next: rest and check recovery before your next workout.'))}{button(t('مشاهده سابقه','View saved history'),()=>setPane('history'))}{button(t('بازگشت به امروز','Back to today'),()=>patch({lastSaved:undefined}),true)}</>);
+ if(!library&&!f&&s.active?.endedAt)return box(<>{txt(t('تمرین پایان یافته؛ نتیجه در انتظار ثبت','Workout ended; feedback pending'),25)}{txt(t('زمان تمرین متوقف است؛ از همین‌جا ثبت را ادامه بده.','The workout clock is stopped; continue saving here.'))}{button(t('ادامه ثبت جلسه','Continue saving workout'),()=>update(old=>beginFeedback(old)))}</>);
+ if(library)return box(<>{txt(t('کتابخانه حرکت‌ها','Movement library'),26)}{txt(t('هر حرکت روش و تصویر خودش را دارد. توان یک حرکت به بقیه تعمیم داده نمی‌شود.','Each movement has its own instructions and images. Ability in one does not imply ability in others.'),15,muted)}{selected?<>{button(t('بازگشت به فهرست','Back to list'),()=>select(''),true)}{txt(movements[selected].name[s.lang],24)}<MovementView id={selected} lang={s.lang} ink={ink} details/></>:Object.entries(movements).map(([id,m])=><View key={id}>{button(m.name[s.lang],()=>select(id),true)}{txt(targetText(id,s.lang),14,muted)}</View>)}</>);
  if(f){
   if(f.kind==='daily'&&f.date!==dayKey())return box(<>{txt(t('این بررسی برای روز دیگری بود؛ حال امروز را دوباره بررسی کنیم.','This check was for a different day; let’s check how you feel today.'))}{button(t('بررسی امروز','Check today'),()=>begin('daily'))}{button(t('خروج از بررسی','Exit check'),exit,true)}</>);
   const list=flowQuestions(f),q=list[f.cursor];
   const safety=f.kind==='daily'&&(f.answers.symptoms==='yes'||f.answers.pain==='yes');
   if(safety)return box(<>{txt(t('امروز اول مراقبت','Care comes first today'),26)}{txt(f.answers.symptoms==='yes'?t('تمرین نکن. درد قفسه سینه، احساس غش یا تنگی نفس شدید نیاز به بررسی فوری دارد؛ با اورژانس محلی تماس بگیر.','Do not exercise. Chest pain, feeling faint or severe breathlessness needs urgent assessment; contact local emergency services.'):t('با درد یا بیماری تمرین نکن. اگر ادامه داشت، ارزیابی حرفه‌ای بگیر.','Do not train through pain or illness. Seek assessment if it persists.'))}{button(t('اصلاح پاسخ','Edit answer'),back,true)}{button(t('بستن بررسی','Close check'),exit,true)}</>);
-  return box(<>{txt(t('قدم به قدم','One step at a time'),15,muted)}{txt(`${Math.min(f.cursor+1,list.length)} / ${list.length}`,15,muted)}
+  return box(<>{txt(f.kind==='post'?t('تمرین تمام شد؛ ثبت نتیجه','Workout ended; save your result'):t('قدم به قدم','One step at a time'),15,muted)}{txt(`${Math.min(f.cursor+1,list.length)} / ${list.length}`,15,muted)}
    {button(t('خروج از بررسی','Exit check'),exit,true)}
-   {q?<>{txt(q.title[s.lang],25)}{q.hint&&txt(q.hint[s.lang],15,muted)}{q.options.map(o=><View key={o.id}>{button((f.answers[q.key]===o.id?'✓ ':'')+o.label[s.lang],()=>patch({flow:answerFlow(f,o.id)}),true)}</View>)}{q.key==='minutes'&&<>{txt(t('زمان دلخواه (۵ تا ۱۲۰ دقیقه)','Custom time (5–120 minutes)'))}<TextInput accessibilityLabel="Custom minutes" keyboardType="number-pad" value={custom} onChangeText={v=>setCustom(numericText(v))} style={{color:ink,borderWidth:1,borderColor:muted,borderRadius:12,padding:15,fontSize:20}}/>{button(t('ثبت زمان دلخواه','Use custom time'),()=>{if(validAnswer(q,custom))patch({flow:answerFlow(f,custom)});else Alert.alert(t('عدد صحیح ۵ تا ۱۲۰ وارد کن','Enter a whole number from 5 to 120'));},true)}</>}</>:<>{txt(t('پاسخ‌ها آماده‌اند','Your answers are ready'),25)}{list.map(q=><View key={q.key}>{txt(q.title[s.lang],14,muted)}{txt(q.options.find(o=>o.id===f.answers[q.key])?.label[s.lang]??f.answers[q.key]??'—')}</View>)}{button(t('تأیید و ادامه','Confirm and continue'),finishFlow)}</>}
+   {q?<>{txt(q.title[s.lang],25)}{q.hint&&txt(q.hint[s.lang],15,muted)}{q.options.map(o=><View key={o.id}>{button((f.answers[q.key]===o.id?'✓ ':'')+o.label[s.lang],()=>patch({flow:answerFlow(f,o.id)}),true)}</View>)}{q.key==='minutes'&&<>{txt(t('زمان دلخواه (۵ تا ۱۲۰ دقیقه)','Custom time (5–120 minutes)'))}<TextInput accessibilityLabel="Custom minutes" keyboardType="number-pad" value={custom} onChangeText={v=>setCustom(numericText(v))} style={{color:ink,borderWidth:1,borderColor:muted,borderRadius:12,padding:15,fontSize:20}}/>{button(t('ثبت زمان دلخواه','Use custom time'),()=>{if(validAnswer(q,custom))patch({flow:answerFlow(f,custom)});else Alert.alert(t('عدد صحیح ۵ تا ۱۲۰ وارد کن','Enter a whole number from 5 to 120'));},true)}</>}</>:<>{txt(t('پاسخ‌ها آماده‌اند','Your answers are ready'),25)}{list.map(q=><View key={q.key}>{txt(q.title[s.lang],14,muted)}{txt(q.options.find(o=>o.id===f.answers[q.key])?.label[s.lang]??f.answers[q.key]??'—')}</View>)}{button(f.kind==='post'?t('ثبت جلسه','Save session'):t('تأیید و ادامه','Confirm and continue'),finishFlow)}</>}
    {f.cursor>0&&button(t('برگشت و ویرایش','Back and edit'),back,true)}
    {txt(t('پیشرفت ذخیره می‌شود؛ می‌توانی برنامه را ببندی و بعد ادامه بدهی.','Progress is saved; you can close the app and continue later.'),13,muted)}
   </>);
@@ -76,7 +76,7 @@ export default function Coach({s,update,library=false,onNavigate}:Props){
   const index=ends.findIndex(end=>seconds<end),end=ends[index]??total,step=a.steps[index];
   const transition=!!step?.transition&&!a.transitions?.includes(index);
   const pause=()=>update({active:{...a,elapsed:seconds,started:now,paused:transition?false:!a.paused,...(transition?{transitions:[...(a.transitions??[]),index]}:{})}});
-  const result=()=>update({active:{...a,elapsed:seconds,started:now,paused:true},coach:{...c,flow:c.draft&&(c.draft.kind==='post'||c.draft.kind==='stop'&&c.draft.target==='active')?c.draft:newFlow('post'),draft:c.draft?.kind==='post'||c.draft?.kind==='stop'&&c.draft.target==='active'?undefined:c.draft}});
+  const result=()=>update(old=>beginFeedback(old,Date.now()));
   return box(<>{txt(t('جلسه امروز','Today’s session'),15,muted)}{txt(step?(step.phase==='warmup'?t('گرم‌کردن','Warm-up'):step.phase==='cooldown'?t('سردکردن','Cool-down'):t('تمرین','Exercise')):t('جلسه تمام شد','Session finished'),24)}
    {step?<>{txt(step.title[s.lang],27)}{txt(`${Math.max(0,Math.ceil(end-seconds))} ${t('ثانیه','seconds')}`,34)}{txt(`${index+1} / ${a.steps.length}`,14,muted)}{step.note&&txt(step.note[s.lang])}
    {step.phase==='work'&&step.exercise&&txt(`${t('ست / بازه','Set / interval')} ${a.steps.slice(0,index+1).filter(x=>x.phase==='work'&&x.exercise).length} / ${a.steps.filter(x=>x.phase==='work'&&x.exercise).length}`,16,muted)}
@@ -100,15 +100,17 @@ export default function Coach({s,update,library=false,onNavigate}:Props){
  const recoveryTarget=painRecord??recovery;
  if(recoveryTarget)return box(<>{txt(t('اول، حال بعد از جلسه قبل','First, recovery from your last session'),25)}{txt(t('ریکاوری فعالیت قبلی هنوز مشخص یا مناسب نیست؛ علت توقف با درد و خستگی فرق دارد.','Recovery from previous activity is unknown or unresolved; an interruption is different from pain or fatigue.'))}{button(t('ثبت ریکاوری','Record recovery'),()=>begin('recovery',recoveryTarget.id))}{historyControls}</>);
  const ready=c.ready?.date===dayKey()?c.ready:undefined;
- const plan=ready?choosePlan(c.profile,ready.answers,s.sessions,c.feedback,now):undefined;
+ const plan=ready?choosePlan(c.profile,ready.answers,s.sessions,c.feedback,now,c.abilities,c.swaps?.date===dayKey()?c.swaps.items:undefined):undefined;
  return box(<>{txt(t('امروز','Today'),15,muted)}{txt(t('برنامه امروز من','My plan today'),29)}
   {resumeDraft}
+  {button(t('سطح مستقل شکم و پلانک','Set independent core ability'),()=>begin('skills'),true)}
   {!plan?<>{txt(last?.date===dayKey()?t('جلسه امروز ثبت شد. دفعه بعد بازخوردت را در نظر می‌گیرم.','Today’s session is saved. Your feedback will guide the next plan.'):t('چند سؤال کوتاه، سپس برنامه آماده است.','A few short questions, then your plan is ready.'))}{button(t('برنامه امروز من','My plan today'),()=>begin('daily'))}</>:<>
    {txt(plan.name?.[s.lang]??(!plan.steps.length?t('استراحت یا بررسی بیشتر','Rest or further assessment'):plan.decision.state==='return'?t('شروع کوتاه','Short starting session'):plan.decision.mode==='home'?t('حرکت راحت / ریکاوری','Comfortable movement / recovery'):names[plan.decision.mode][s.lang]),24)}{txt(plan.decision.reason[s.lang])}{plan.weekly&&expanded&&txt(plan.weekly[s.lang],15,muted)}{plan.nextMain&&(expanded||plan.program?.kind==='recovery')&&txt(plan.nextMain[s.lang],15,muted)}
    {!!plan.steps.length&&<>{txt(`${plan.decision.minutes} ${t('دقیقه، با گرم‌کردن و سردکردن','minutes, including warm-up and cool-down')}`,19)}{txt([...new Set(plan.steps.filter(x=>x.exercise).map(x=>x.title[s.lang]))].join(' • '),16,muted)}
+   {plan.decision.mode==='strength'&&<>{txt(t('تمرکز: سینه و میان‌تنه، در برنامه متوازن کل بدن','Focus: chest and core within balanced full-body training'),20)}{txt(noSpotLoss[s.lang],14,muted)}{txt(t('سطح سینه: ','Chest level: ')+(movements['push-'+c.profile.push]?.name[s.lang]??t('نامشخص','Unknown'))+' · '+t('میان‌تنه: ','Core: ')+(c.abilities? t('طبق توان مستقل ثبت‌شده','reported independently'):t('پایه؛ هنوز ارزیابی نشده','foundation; not yet assessed')),14,muted)}</>}
    {txt(plan.program?.kind==='recovery'?t('حرکت اختیاری روز ریکاوری','Optional recovery movement'):t('تمرین اصلی امروز','Today’s main work'),21)}
    {plan.steps.some(x=>x.transition)&&txt(t('خانه + بیرون؛ برای جابه‌جایی توقف دستی داریم.','Indoors + outside, with a manual pause for moving between locations.'),16,muted)}
-   {[...new Set(plan.steps.filter(x=>x.phase==='work'&&x.exercise).map(x=>x.exercise!))].map(id=>{const sets=plan.steps.filter(x=>x.phase==='work'&&x.exercise===id);return <View key={id}>{txt(`${movements[id].name[s.lang]} · ${sets.length} ${t('ست / بازه','sets / intervals')} · ${sets[0].reps?`${sets[0].reps} ${t('تکرار در هر ست','reps per set')}`:`${sets.map(x=>x.seconds).join(' + ')} ${t('ثانیه','seconds')}`}`,16)}</View>;})}
+   {[...new Set(plan.steps.filter(x=>x.phase==='work'&&x.exercise).map(x=>x.exercise!))].map(id=>{const sets=plan.steps.filter(x=>x.phase==='work'&&x.exercise===id);return <View key={id}>{txt(`${movements[id].name[s.lang]} · ${sets.length} ${t('ست / بازه','sets / intervals')} · ${sets[0].reps?`${sets[0].reps} ${t('تکرار در هر ست','reps per set')}`:`${sets.map(x=>x.seconds).join(' + ')} ${t('ثانیه','seconds')}${sideHold(id)?t('؛ ۱۰ ثانیه هر سمت، ۵ ثانیه جابه‌جایی','; 10 sec each side, 5 sec switch'):''}`}`,16)}{txt(t('استراحت پس از هر ست: ','Rest after each set: ')+plan.steps.filter((x,i)=>!x.exercise&&plan.steps[i-1]?.exercise===id).map(x=>x.seconds).join(' / ')+t(' ثانیه',' seconds'),14,muted)}{txt(targetText(id,s.lang),14,muted)}{txt(level(id)[s.lang],13,muted)}{txt(t('انتخاب برای تقویت این عضلات با توان و امکانات گزارش‌شده.','Selected for these muscles using your reported ability and available support.'),13,muted)}{button(t('روش حرکت: ','How to: ')+movements[id].name[s.lang],()=>setPreview(preview===id?'':id),true)}{preview===id&&<MovementView id={id} lang={s.lang} ink={ink} details/>}{button(t('تعویض حرکت: ','Replace: ')+movements[id].name[s.lang],()=>{setSwap(swap===id?'':id);setSwapReason('');},true)}{swap===id&&<>{txt(t('علت تعویض چیست؟','Why replace it?'))}{!swapReason?<>{button(t('بیش از حد سخت است','Too difficult'),()=>setSwapReason('difficulty'),true)}{button(t('تکیه‌گاه یا روش مناسب نیست','Support or technique does not suit me'),()=>setSwapReason('support'),true)}{button(t('درد یا علائم غیرعادی دارم','I have pain or unusual symptoms'),()=>{patch({ready:{date:dayKey(),answers:{...ready!.answers,pain:'yes'}}});setSwap('');},true)}</>:<>{alternatives(id,c.profile,ready!.answers,c.abilities).filter(other=>other!==id&&!plan.steps.some(x=>x.phase==='work'&&x.exercise===other)).map(other=><View key={other}>{button(t('جایگزین: ','Use: ')+movements[other].name[s.lang],()=>{patch({swaps:{date:dayKey(),items:{...(c.swaps?.date===dayKey()?c.swaps.items:{}),[id]:other}}});setSwap('');},true)}</View>)}{txt(t('فقط گزینه‌های متناسب توان مستقل و امکانات فعلی نمایش داده می‌شوند؛ برای تغییر امکانات یا توان، پاسخ‌ها را اصلاح کن.','Only alternatives supported by reported ability and available support appear; edit those answers if needed.'),13,muted)}</>}</>}</View>;})}
    {txt(t('زمان ست شامل فرصت انجام آرام تکرارهاست؛ بقیه آن استراحت است. تعداد انجام‌شده خودکار شمرده نمی‌شود.','Set windows allow slow repetitions, then rest. Completed repetitions are not counted automatically.'),14,muted)}
    <AudioControls s={s} update={update}/>
    {button(t('شروع برنامه','Start plan'),()=>update({active:{id:String(now),started:now,elapsed:0,paused:false,steps:plan.steps,decision:plan.decision,program:plan.program,skipped:[]}}))}
@@ -119,7 +121,7 @@ export default function Coach({s,update,library=false,onNavigate}:Props){
    {button(t('اصلاح حال امروز','Edit today’s answers'),()=>patch({flow:{...newFlow('daily'),answers:{...ready!.answers},baseline:{...ready!.answers}}}),true)}
    {last&&button(t('به‌روزرسانی ریکاوری','Update recovery'),()=>begin('recovery',last.id),true)}
   </>}
-  {historyControls}
+  {historyControls}{button(t('مشاهده سابقه','View saved history'),()=>setPane('history'),true)}{button(t('ثبت دستی جلسه ازدست‌رفته','Log a missing workout'),()=>setPane('manual'),true)}
   {button(t('ویرایش توان و محدودیت‌ها','Edit ability and restrictions'),()=>patch({flow:{...newFlow('intake'),answers:{...c.profile},baseline:{...c.profile}}}),true)}
  </>);
 }

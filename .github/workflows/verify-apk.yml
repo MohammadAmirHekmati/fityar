@@ -52,7 +52,7 @@ jobs:
           profile: pixel_2
           disable-animations: true
           emulator-options: -no-window -no-audio -gpu swiftshader_indirect -no-snapshot -no-boot-anim
-          script: python tests/android-v4.py
+          script: python tests/android-v5.py
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -66,6 +66,6 @@ jobs:
         run: |
           NUMBER=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$BUILD_RUN" --jq .run_number)
           SHA=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$BUILD_RUN" --jq .head_sha)
-          TAG="v1.3.0-preview.$NUMBER"
+          TAG="v1.4.0-preview.$NUMBER"
           gh release view "$TAG" >/dev/null 2>&1 || gh release create "$TAG" --target "$SHA" --prerelease --title 'FitYar preview / پیش‌نمایش فیت‌یار' --notes-file RELEASE.md
           gh release upload "$TAG" fityar.apk fityar.apk.sha256 --clobber
