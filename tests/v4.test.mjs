@@ -53,6 +53,8 @@ test('Testing the app does not create progress, fake completion or erase pain / 
  assert.ok(quickStart(state,now).active);
  assert.equal(choosePlan(profile,daily,[{...record,pain:true}],{},now).steps.length,0);
  assert.equal(correctSession({...record,pain:true},'test').pain,true);
+ assert.equal(choosePlan(profile,daily,[correctSession({...short,recovery:5,effort:8},'test')],{},now).program.kind,'strength');
+ assert.equal(choosePlan(profile,daily,[correctSession({...short,recovery:8},'test')],{},now).steps.length,0,'Test correction must not erase unresolved pain/substantial fatigue');
 });
 
 test('True fatigue and real loaded muscles still produce a labeled recovery day / حفظ ریکاوری واقعی',()=>{

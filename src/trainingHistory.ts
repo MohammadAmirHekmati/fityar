@@ -35,7 +35,7 @@ export function recoveryNeeded(history:Session[],now=Date.now()){
 export function trainingEvidence(history:Session[],now:number){
  const rows=history.filter(s=>s.status!=='missed').sort((a,b)=>b.at-a.at);
  const unresolvedPain=rows.find(s=>(s.pain||s.stopReason==='pain'||(s.recovery??0)>=7)&&s.recovery!==2);
- const fatigue=rows.find(s=>now-s.at<72*3600000&&s.recovery!==2&&
+ const fatigue=rows.find(s=>s.stopReason!=='test'&&s.activity!=='none'&&now-s.at<72*3600000&&s.recovery!==2&&
   ((s.recovery??0)>=5||s.stopReason==='fatigue'||(exposure(s).seconds>0&&(s.effort>=8||!s.talk))));
  const loaded=rows.filter(s=>{const groups=Object.entries(exposure(s).groups).filter(([g])=>g!=='cardio');return now-s.at<48*3600000&&(groups.some(([,n])=>n>=60)||groups.reduce((n,[,seconds])=>n+seconds,0)>=120);});
  const completed=rows.filter(s=>now-s.at<=35*86400000&&s.status==='complete'&&meaningful(s)&&s.recovery===2&&!s.pain&&s.effort<=5&&s.talk).filter((s,i,all)=>all.findIndex(x=>x.date===s.date&&x.mode===s.mode)===i);
