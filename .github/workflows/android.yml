@@ -20,6 +20,8 @@ jobs:
           distribution: temurin
           java-version: 17
       - uses: android-actions/setup-android@v3
+        with:
+          packages: platform-tools
       - name: Install and verify / نصب و بررسی
         run: |
           npm ci
@@ -55,3 +57,4 @@ jobs:
         run: |
           gh release view v1.0.0-preview >/dev/null 2>&1 || gh release create v1.0.0-preview --prerelease --title 'FitYar preview / پیش‌نمایش فیت‌یار' --notes-file RELEASE.md
           gh release upload v1.0.0-preview fityar.apk fityar.apk.sha256 --clobber
+
