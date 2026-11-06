@@ -13,7 +13,9 @@ def center(n):
 def shot(name):
     with open('screenshots/'+name+'.png','wb') as f:subprocess.run(['adb','exec-out','screencap','-p'],stdout=f,check=True)
 def on_error(kind,value,trace):
-    try:shot('failure')
+    try:
+        shot('failure')
+        with open('screenshots/failure.xml','w') as f:f.write(ET.tostring(tree(),encoding='unicode'))
     finally:sys.__excepthook__(kind,value,trace)
 sys.excepthook=on_error
 
@@ -30,14 +32,16 @@ def visible(node,root,label):
             if b[1]>bottom*.7:navtop.append(b[1] if n.attrib.get('clickable')=='true' else b[1]-50)
     return box[3]<=min(navtop,default=bottom)
 def click(label,scroll=True,before=None):
-    for _ in range(12 if scroll else 2):
+    for _ in range(28 if scroll else 2):
         root=tree()
         matches=[n for n in root.iter('node') if (n.attrib.get('text','').removeprefix('✓ ').casefold()==label.removeprefix('✓ ').casefold() or n.attrib.get('content-desc','').removeprefix('✓ ').casefold()==label.removeprefix('✓ ').casefold()) and visible(n,root,label)]
         matches.sort(key=lambda n:n.attrib.get('clickable')!='true')
         if matches:
             if before:before()
             adb('shell','input','tap',*center(matches[0]));time.sleep(1.2);return
-        if scroll:adb('shell','input','swipe','300','1450','300','600','350');time.sleep(.6)
+        if scroll:
+            start,end=('1300','850') if _<14 else ('850','1300')
+            adb('shell','input','swipe','300',start,'300',end,'350');time.sleep(.8)
     shot('missing-'+re.sub(r'[^a-zA-Z0-9]','_',label))
     raise AssertionError('Missing control: '+label)
 def has(text):return any(text.casefold() in n.attrib.get('text','').casefold() or text.casefold() in n.attrib.get('content-desc','').casefold() for n in tree().iter('node'))
