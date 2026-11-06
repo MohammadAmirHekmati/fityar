@@ -39,7 +39,7 @@ enter('Age (18 or older)','30');click('Begin',True)
 click('Progress');enter('Weight (kg)','70');enter('Waist (cm)','90');click('Save measurements',True)
 click('Food');click('Log today',True)
 click('Today');click('Mark today as not done',True);shot('01-v1-data')
-adb('shell','am','force-stop',APP);adb('install','-r','fityar.apk');launch();shot('02-upgraded')
+adb('shell','am','force-stop',APP);adb('shell','svc','wifi','disable');adb('shell','svc','data','disable');adb('install','-r','fityar.apk');launch();shot('02-upgraded')
 assert 'versionCode=2' in adb('shell','dumpsys','package',APP),'Wrong versionCode'
 click('Progress');click('Last 7 readings average: 70.0 kg',True);shot('03-retained-measurement');click('Manually marked not done',True);shot('03-retained-history')
 click('Food');click('Browse, favorites and logs');enter('Search food or alias','Rice');click('Today’s food log',True);assert has('Rice · 1'),'V1 food missing';shot('04-retained-food')
@@ -60,6 +60,10 @@ shot('08-knee-work-stage')
 adb('shell','am','force-stop',APP);launch();assert has('Resume'),'Paused session did not persist'
 click('Finish early and record',True);answers(['Moderate — 5 out of 10','Yes','No','None']);shot('09-result-en')
 assert has('Today’s session is saved'),'Result not saved'
+click('My plan today');answers(['No','No, I feel well','Enough and acceptable','Good','10 minutes','Indoors','None'])
+click('Update recovery',True);answers(['Pain or substantial fatigue']);shot('09-recovery-answer')
+click('My plan today');answers(['No','No, I feel well','Enough and acceptable','Good','10 minutes','Indoors','None']);assert has('Previous pain or poor recovery is unresolved'),'Poor recovery did not block exercise';shot('09-recovery-block')
+click('Update recovery',True);answers(['Comfortable and recovered'])
 # Persian full check -> plan -> guided session -> result, with same retained profile.
 click('فا');click('برنامه امروز من');
 for label in ['نه','نه، حالم خوب است','کافی و قابل قبول','معمولی','۵ دقیقه','داخل خانه','هیچ‌کدام']:click(label,True)
