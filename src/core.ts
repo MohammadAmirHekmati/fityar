@@ -1,6 +1,7 @@
 export type Lang = "fa" | "en";
 export type Text = { fa: string; en: string };
 export const bi = (fa: string, en: string): Text => ({ fa, en });
+export const numericText = (value:string) => value.replace(/[۰-۹]/g,x=>String(x.charCodeAt(0)-1776)).replace(/[٠-٩]/g,x=>String(x.charCodeAt(0)-1632)).replace(/٫/g,'.');
 export const dayKey = (d = new Date()) =>
   `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 export type Mode = "walk" | "run" | "strength" | "home" | "short";
@@ -53,6 +54,7 @@ export function decide(
       ),
     );
   if(![c.minutes,c.sleep,c.energy].every(Number.isFinite)||typeof c.pain!=='boolean'||typeof c.symptoms!=='boolean'||typeof c.outside!=='boolean')return result('rest',bi('اطلاعات آمادگی کامل نیست؛ ابتدا آن را تکمیل کن.','Readiness data is incomplete; complete it before planning.'));
+  if(c.minutes<5||c.minutes>60||c.sleep<0||c.sleep>24||c.energy<1||c.energy>5)return result('rest',bi('زمان ۵ تا ۶۰ دقیقه و مقدار معتبر خواب و انرژی وارد کن.','Enter 5–60 minutes and valid sleep and energy values.'));
   if (c.pain)
     return result(
       "rest",

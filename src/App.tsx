@@ -1,5 +1,5 @@
 import Illustration from "./Illustration";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import {
   Alert,
   AppState,
@@ -33,6 +33,7 @@ import {
   movementLevel,
   names,
   normalize,
+  numericText,
   plan,
   Session,
 } from "./core";
@@ -41,9 +42,13 @@ import { permission, syncNotifications, testNotification } from "./reminders";
 
 export default function App() {
   const [s, setS] = useState<State>(() => load());
+  const scrollRef=useRef<React.ComponentRef<typeof ScrollView>>(null);
+  const latestState=useRef(s);
+  useEffect(()=>{latestState.current=s;},[s]);
   const [page, setPage] = useState("today"),
     [tick, setTick] = useState(() => Date.now()),
     [notice, setNotice] = useState("");
+  useEffect(()=>{scrollRef.current?.scrollTo({y:0,animated:false});},[page]);
   const [check, C] = useState<Check>({
     minutes: 20,
     sleep: 7,
@@ -105,7 +110,7 @@ export default function App() {
   }, [s]);
   useEffect(() => {
     const id = setInterval(() => setTick(Date.now()), 1000);
-    const sub = AppState.addEventListener("change", () => setTick(Date.now()));
+    const sub = AppState.addEventListener("change", (state) => {setTick(Date.now());if(state==='active')syncNotifications(latestState.current).catch(()=>{});});
     return () => {
       clearInterval(id);
       sub.remove();
@@ -186,7 +191,7 @@ export default function App() {
       <TextInput
         accessibilityLabel={label}
         value={value}
-        onChangeText={onChange}
+        onChangeText={v=>onChange(numeric?numericText(v):v)}
         keyboardType={numeric ? "numeric" : "default"}
         style={[
           styles.input,
@@ -378,6 +383,7 @@ export default function App() {
         )}
       </View>
       <ScrollView
+        ref={scrollRef}
         contentContainerStyle={{ padding: 18, paddingBottom: 35, gap: 15 }}
         keyboardShouldPersistTaps="handled"
       >
@@ -426,7 +432,7 @@ export default function App() {
                 true,
               )}
               {button(t("شروع", "Begin"), () => {
-                if (Number(s.profile.age) < 18 || Number(s.profile.age) > 100) {
+                if (!Number.isFinite(Number(s.profile.age)) || Number(s.profile.age) < 18 || Number(s.profile.age) > 100) {
                   setNotice(
                     t("سن معتبر بزرگسال وارد کن.", "Enter a valid adult age."),
                   );
@@ -738,7 +744,7 @@ export default function App() {
                         (v) =>
                           C({
                             ...check,
-                            minutes: Math.max(5, Math.min(60, Number(v) || 5)),
+                            minutes: Number(v) || 0,
                           }),
                         true,
                       )}
@@ -1031,7 +1037,7 @@ export default function App() {
                     {button(t("ثبت اندازه‌ها", "Save measurements"), () => {
                       const w = Number(weight),
                         a = Number(waist);
-                      if (w < 25 || w > 350 || a < 35 || a > 250) {
+                      if (!Number.isFinite(w) || !Number.isFinite(a) || w < 25 || w > 350 || a < 35 || a > 250) {
                         setNotice(
                           t(
                             "اندازه معتبر وارد کن.",
@@ -1483,5 +1489,7 @@ const styles = StyleSheet.create({
   },
   nav: { borderTopWidth: 1, paddingBottom: 24, flexDirection: "row" },
 });
+
+
 
 
