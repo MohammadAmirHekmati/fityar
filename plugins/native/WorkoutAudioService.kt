@@ -22,7 +22,7 @@ class WorkoutAudioService:Service(){
  override fun onCreate(){super.onCreate();val manager=getSystemService(NotificationManager::class.java);if(Build.VERSION.SDK_INT>=26)manager.createNotificationChannel(NotificationChannel("workout-audio","Workout timer / صدای تمرین",NotificationManager.IMPORTANCE_LOW).apply{setSound(null,null);enableVibration(false)})}
  override fun onStartCommand(intent:Intent?,flags:Int,startId:Int):Int{
   if(intent?.action=="mute"){muted=true;getSharedPreferences("workout_audio",MODE_PRIVATE).edit().putBoolean("muted",true).apply();stopSelf();return START_NOT_STICKY}
-  if(intent?.action=="test"){startForeground(812,notification("Sound test / آزمایش صدا"));play(ToneGenerator.TONE_PROP_ACK,500,intent.getIntExtra("volume",60));handler.postDelayed({stopSelf()},900);return START_NOT_STICKY}
+  if(intent?.action=="test"){startForeground(812,notification("Sound test / آزمایش صدا"));play(ToneGenerator.TONE_PROP_ACK,600,intent.getIntExtra("volume",60));handler.postDelayed({stopSelf()},950);return START_NOT_STICKY}
   state=JSONObject(intent?.getStringExtra("state")?:"{}")
   val id=state.optString("id")
   if(session!=id){session=id;lastIndex=-2;lastCount=-1;muted=false;getSharedPreferences("workout_audio",MODE_PRIVATE).edit().putBoolean("muted",false).apply()}
@@ -75,11 +75,16 @@ class WorkoutAudioService:Service(){
   val manager=getSystemService(NotificationManager::class.java)
   if(muted||audio.ringerMode!=AudioManager.RINGER_MODE_NORMAL||manager.currentInterruptionFilter!=NotificationManager.INTERRUPTION_FILTER_ALL||audio.getStreamVolume(AudioManager.STREAM_MUSIC)==0)return
   tone?.release();if(Build.VERSION.SDK_INT>=26)focus?.let{audio.abandonAudioFocusRequest(it)}
-  val request=if(Build.VERSION.SDK_INT>=26)AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN_TRANSIENT_MAY_DUCK).setAudioAttributes(AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_MEDIA).setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION).build()).setOnAudioFocusChangeListener{change->if(change<0)tone?.stopTone()}.build() else null
+  val attrs=AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_MEDIA).setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION).setFlags(AudioAttributes.FLAG_AUDIBILITY_ENFORCED).build()
+  val request=if(Build.VERSION.SDK_INT>=26)AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN_TRANSIENT_MAY_DUCK).setAudioAttributes(attrs).setOnAudioFocusChangeListener{change->if(change<0)tone?.stopTone()}.build() else null
   focus=request
   val granted=if(Build.VERSION.SDK_INT>=26&&request!=null)audio.requestAudioFocus(request) else audio.requestAudioFocus(null,AudioManager.STREAM_MUSIC,AudioManager.AUDIOFOCUS_GAIN_TRANSIENT_MAY_DUCK)
   if(granted!=AudioManager.AUDIOFOCUS_REQUEST_GRANTED)return
-  tone=ToneGenerator(AudioManager.STREAM_MUSIC,volume.coerceIn(0,100));tone?.startTone(kind,duration)
+  // ToneGenerator's gain is percentage based; avoid applying a second software gain.
+  // Raise the default audible floor while preserving user's explicit lower settings.
+  val effectiveVolume=if(volume>=60) max(volume,85) else volume
+  tone=ToneGenerator(AudioManager.STREAM_MUSIC,effectiveVolume.coerceIn(0,100));tone?.startTone(kind,duration)
+  android.util.Log.i("FitYarAudio","tone kind=$kind duration=$duration requested=$volume applied=$effectiveVolume stream=${audio.getStreamVolume(AudioManager.STREAM_MUSIC)}/${audio.getStreamMaxVolume(AudioManager.STREAM_MUSIC)}")
   if(state.optBoolean("vibrate",false)){val v=getSystemService(VIBRATOR_SERVICE) as Vibrator;if(Build.VERSION.SDK_INT>=26)v.vibrate(VibrationEffect.createOneShot(100,VibrationEffect.DEFAULT_AMPLITUDE)) else v.vibrate(100)}
   handler.postDelayed({tone?.stopTone();if(Build.VERSION.SDK_INT>=26&&request!=null)audio.abandonAudioFocusRequest(request) else audio.abandonAudioFocus(null)},duration.toLong()+20)
  }
