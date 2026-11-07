@@ -71,7 +71,12 @@ def seek(text):
     return False
 
 def pause_timer():
-    click('Pause');assert has('Resume'),'Pause failed'
+    # The UI may already be paused after a restored/transitioned state.
+    if has('Resume'):
+        return
+    assert wait_has('Pause'),'Timer has neither Pause nor Resume'
+    click('Pause')
+    assert wait_has('Resume'),'Pause did not stop the workout timer'
 
 def launch():
     adb('shell','monkey','-p',APP,'1');time.sleep(7)
